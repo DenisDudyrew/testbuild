@@ -21,6 +21,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "next-auth": "^5.0.0-beta.31",
