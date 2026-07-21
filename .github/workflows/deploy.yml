@@ -39,8 +39,13 @@ jobs:
     needs: build-and-push
     runs-on: self-hosted
     steps:
-      - name: Pull latest image and restart
+      - name: Checkout → код
+        uses: actions/checkout@v4
+
+      - name: Copy files and restart containers
         run: |
+          mkdir -p /opt/testbuild
+          cp docker-compose.prod.yml /opt/testbuild/docker-compose.prod.yml
           cd /opt/testbuild
           docker compose -f docker-compose.prod.yml pull app
           docker compose -f docker-compose.prod.yml up -d --no-deps app
