@@ -1,0 +1,53 @@
+services:
+  # maildev:
+  #   image: maildev/maildev:latest
+  #   restart: always
+  #   ports:
+  #     - "1025:1025"   # SMTP
+  #     - "1080:1080"   # Web UI
+  #   environment:
+  #     - TZ=Europe/Moscow
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: social_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d social_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/social_db
+      - AUTH_SECRET=super_secret_local_key_change_in_prod
+      - NEXTAUTH_SECRET=super_secret_local_key_change_in_prod
+      - NEXTAUTH_URL=http://localhost:3000
+      - AUTH_TRUST_HOST=true
+      - SMTP_HOST=smtp.mail.ru
+      - SMTP_PORT=465
+      - SMTP_USER=zephyroff@internet.ru
+      - SMTP_PASS=K0V7InXbospA7mS8jVtH
+      - SMTP_TLS=true
+      - SMTP_FROM=zephyroff@internet.ru
+      - SMTP_FROM_NAME=ZEPHYR
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
+volumes:
+  postgres_data:
