@@ -77,7 +77,7 @@ const { createMockPrisma, createMockAuth } = vi.hoisted(() => {
       messageReaction: createMockModel(),
       pinnedMessage: createMockModel(),
       $disconnect: vi.fn(),
-      $transaction: vi.fn((fn: (prisma: MockPrisma) => unknown) => fn(mockPrisma)),
+      $transaction: vi.fn((fn: (prisma: MockPrisma) => unknown): unknown => fn(mockPrisma)),
     };
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "testbuild",
-  "version": "0.1.0",
+  "version": "0.0.5",
   "private": true,
   "scripts": {
     "dev": "tsx server.ts",
