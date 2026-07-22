@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Repeat2, MessageCircle, Heart, MessageSquareMore } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 
 interface CommentRepostComment {
@@ -72,19 +73,19 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="mx-4 w-full max-w-lg animate-rise rounded-2xl border border-zinc-200 bg-white shadow-xl"
+        className="mx-4 w-full max-w-lg animate-pop rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Шапка */}
-        <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-          <h2 className="text-base font-semibold text-zinc-900">Репост комментария</h2>
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-5 py-4">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Репост комментария</h2>
           <button
             onClick={onClose}
-            className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+            className="rounded-full p-1 text-zinc-400 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:text-zinc-600"
           >
             <X className="size-5" />
           </button>
@@ -96,7 +97,7 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
             value={repostComment}
             onChange={(e) => setRepostComment(e.target.value)}
             placeholder="Добавьте комментарий к репосту..."
-            className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full resize-none rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             rows={3}
             maxLength={1000}
           />
@@ -108,11 +109,8 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
               <span className="text-xs text-indigo-500">Комментарий</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
-              {comment.user.avatar ? (
-                <img src={comment.user.avatar} alt={comment.user.username}
-                  className="size-5 rounded-full object-cover ring-1 ring-indigo-200" />
-              ) : <div className="size-5 rounded-full bg-indigo-200" />}
-              <span className="text-xs font-semibold text-zinc-900">{comment.user.username}</span>
+              <Avatar id={comment.user.id} src={comment.user.avatar} name={comment.user.username} size={5} />
+              <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{comment.user.username}</span>
               <span className="text-xs text-zinc-400">
                 {new Date(comment.createdAt).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -120,25 +118,22 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
                 })}
               </span>
             </div>
-            <p className="mt-1.5 text-sm text-zinc-700">{comment.content}</p>
-            <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
+            <p className="mt-1.5 text-sm text-zinc-700 dark:text-zinc-300">{comment.content}</p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-400">
               <Heart className="size-3" /> {comment._count?.likes || comment.likes?.length || 0}
             </div>
           </div>
 
           {/* Исходный пост, если есть */}
           {comment.post && (
-            <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+            <div className="mt-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3">
               <div className="flex items-center gap-2">
                 <MessageCircle className="size-3 text-zinc-400" />
-                <span className="text-xs text-zinc-500">Оригинальный пост</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">Оригинальный пост</span>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                {comment.post.user.avatar ? (
-                  <img src={comment.post.user.avatar} alt={comment.post.user.username}
-                    className="size-5 rounded-full object-cover ring-1 ring-zinc-200" />
-                ) : <div className="size-5 rounded-full bg-zinc-300" />}
-                <span className="text-xs font-semibold text-zinc-900">{comment.post.user.username}</span>
+                <Avatar id={comment.post.user.id} src={comment.post.user.avatar} name={comment.post.user.username} size={5} />
+                <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{comment.post.user.username}</span>
                 <span className="text-xs text-zinc-400">
                   {new Date(comment.post.createdAt).toLocaleTimeString([], {
                     hour: "2-digit",
@@ -146,7 +141,7 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
                   })}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-zinc-700">{comment.post.content}</p>
+              <p className="mt-1.5 text-sm text-zinc-700 dark:text-zinc-300">{comment.post.content}</p>
               {comment.post.mediaUrl && (
                 <div className="mt-2 overflow-hidden rounded-lg">
                   {comment.post.mediaType === "image" ? (
@@ -164,7 +159,7 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
             >
               Отмена
             </button>

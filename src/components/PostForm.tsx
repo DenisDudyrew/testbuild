@@ -93,7 +93,7 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-8 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md">
+    <form onSubmit={handleSubmit} className="mb-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-indigo-500/20">
       <textarea
         value={newPostContent}
         onChange={(e) => setNewPostContent(e.target.value)}
@@ -103,10 +103,23 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
           }
         }}
         placeholder="Что нового?"
-        className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-400"
+        className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 dark:text-zinc-100"
         rows={3}
         maxLength={1000}
       />
+      <div className="mt-1 flex justify-end">
+        <span
+          className={`text-xs transition-colors duration-200 ${
+            newPostContent.length > 1000
+              ? "text-red-500 font-medium"
+              : newPostContent.length > 900
+              ? "text-amber-500"
+              : "text-zinc-400 dark:text-zinc-500"
+          }`}
+        >
+          {newPostContent.length}/1000
+        </span>
+      </div>
 
       {mediaPreview && (
         <div className="relative mt-3 overflow-hidden rounded-xl bg-black/5">
@@ -129,7 +142,7 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3">
+      <div className="mt-3 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 pt-3">
         <div className="flex items-center gap-2">
           <input
             ref={fileInputRef}
@@ -141,8 +154,8 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all duration-200 hover:bg-zinc-100 ${
-              mediaFile ? "text-indigo-600" : "text-zinc-500"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all duration-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+              mediaFile ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-500 dark:text-zinc-400"
             }`}
           >
             <Paperclip className="size-4" />

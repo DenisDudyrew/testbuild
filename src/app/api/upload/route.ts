@@ -3,7 +3,14 @@ import { auth } from '@/auth';
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
+const ALLOWED_TYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'video/mp4', 'video/webm',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+];
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export async function POST(request: Request) {
@@ -44,10 +51,14 @@ export async function POST(request: Request) {
     await mkdir(uploadDir, { recursive: true });
     await writeFile(path.join(uploadDir, filename), buffer);
 
-    const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+    const mediaType = file.type.startsWith('video/')
+      ? 'video'
+      : file.type.startsWith('image/')
+        ? 'image'
+        : 'file';
     const mediaUrl = `/api/files/${filename}`;
 
-    return NextResponse.json({ mediaUrl, mediaType });
+    return NextResponse.json({ mediaUrl, mediaType, mediaName: file.name });
   } catch (error) {
     console.error('Error uploading file:', error);
     return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });

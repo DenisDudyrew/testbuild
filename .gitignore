@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -41,3 +43,18 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# IDE
+.kodik/
+
+# external projects
+/Zephyr/
+
+# mockups / drafts
+messenger-mockup-*.html
+
+# uploaded files
+/public/uploads/
+
+# playwright
+playwright.config.ts

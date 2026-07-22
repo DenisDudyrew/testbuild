@@ -53,6 +53,7 @@ export interface Post {
   _count?: PostCounts;
   repostOf?: RepostedPost | null;
   repostedComment?: RepostedComment | null;
+  poll?: Poll | null;
 }
 
 export interface CommentUser {
@@ -94,6 +95,22 @@ export interface SearchUser {
   id: string;
   username: string;
   avatar: string | null;
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: Array<{ userId: string }>;
+  _count?: { votes: number };
+}
+
+export interface Poll {
+  id: string;
+  question: string;
+  expiresAt: string | null;
+  createdAt: string;
+  options: PollOption[];
+  votedOptionId?: string | null;
 }
 
 export interface ApiError {

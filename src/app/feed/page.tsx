@@ -1,14 +1,17 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Sparkles, Users } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import PostForm from "@/components/PostForm";
 import PostCard from "@/components/PostCard";
 import RepostModal from "@/components/RepostModal";
 import { usePosts } from "@/lib/hooks/usePosts";
 import type { Post } from "@/types/post";
+
+type FeedTab = 'for-you' | 'following';
 
 export default function FeedPage() {
   return (
@@ -32,24 +35,123 @@ export default function FeedPage() {
 function FeedContent() {
   const { data: session } = useSession();
   const router = useRouter();
+  const [feedTab, setFeedTab] = useState<FeedTab>('for-you');
+  const [feedPosts, setFeedPosts] = useState<Post[]>([]);
+  const [feedHasMore, setFeedHasMore] = useState(true);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedPage, setFeedPage] = useState(1);
+  const [feedTotal, setFeedTotal] = useState(0);
   const {
-    posts,
     comments,
     likedPosts,
     expandedComments,
     showAllComments,
     viewedPosts,
-    hasMore,
-    isLoadingMore,
     setShowAllComments,
     setViewedPosts,
-    loadMore,
-    refreshPosts,
     handleLike,
     handleToggleComments,
     handleAddComment,
+    updatePost,
+    refreshPosts: refreshAll,
   } = usePosts();
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
+  const [pinnedPostId, setPinnedPostId] = useState<string | null>(null);
   const [repostPost, setRepostPost] = useState<Post | null>(null);
+
+  const loadFeed = useCallback(async (pageNum = 1, append = false) => {
+    const endpoint = feedTab === 'for-you' ? '/api/feed/for-you' : '/api/feed/following';
+    setFeedLoading(true);
+    try {
+      const res = await fetch(`${endpoint}?page=${pageNum}&limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        if (append) {
+          setFeedPosts(prev => [...prev, ...data.posts]);
+        } else {
+          setFeedPosts(data.posts);
+        }
+        setFeedTotal(data.total);
+        setFeedHasMore(pageNum * 10 < data.total);
+      }
+    } catch (err) {
+      console.error('Failed to load feed:', err);
+    } finally {
+      setFeedLoading(false);
+    }
+  }, [feedTab]);
+
+  useEffect(() => {
+    if (session) {
+      setFeedPage(1);
+      loadFeed(1);
+    }
+  }, [session, feedTab, loadFeed]);
+
+  const handleLoadMore = useCallback(async () => {
+    const nextPage = feedPage + 1;
+    setFeedPage(nextPage);
+    await loadFeed(nextPage, true);
+  }, [feedPage, loadFeed]);
+
+  const refreshPosts = useCallback(() => {
+    setFeedPage(1);
+    loadFeed(1);
+    refreshAll();
+  }, [loadFeed, refreshAll]);
+
+  const handleBookmark = async (postId: string) => {
+    try {
+      const res = await fetch('/api/bookmarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBookmarkedPosts(prev => {
+          const newSet = new Set(prev);
+          if (data.bookmarked) newSet.add(postId);
+          else newSet.delete(postId);
+          return newSet;
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle bookmark:', error);
+    }
+  };
+
+  const handleVote = async (pollId: string, optionId: string, postId?: string) => {
+    try {
+      const res = await fetch('/api/polls/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pollId, optionId }),
+      });
+      if (res.ok && postId) {
+        // Обновляем результаты голосования локально
+        const pollRes = await fetch(`/api/polls/vote?pollId=${pollId}`);
+        if (pollRes.ok) {
+          const updatedPoll = await pollRes.json();
+          updatePost(postId, { poll: updatedPoll });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to vote:', error);
+    }
+  };
+
+  const handlePin = async (postId: string) => {
+    try {
+      const res = await fetch(`/api/posts/${postId}/pin`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setPinnedPostId(data.pinned ? postId : null);
+      }
+    } catch (error) {
+      console.error('Failed to toggle pin:', error);
+    }
+  };
 
   const handleDeletePost = async (postId: string) => {
     try {
@@ -69,24 +171,24 @@ function FeedContent() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <Sidebar />
 
       <div className="pl-60 max-md:pl-0">
         <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6">
           {/* Заголовок ленты */}
-          <h1 className="mb-6 text-xl font-bold text-zinc-900 animate-slideIn pl-12 sm:pl-0">Лента</h1>
+          <h1 className="mb-6 text-xl font-bold text-zinc-900 dark:text-white animate-flyInLeft pl-12 sm:pl-0">Лента</h1>
 
           <PostForm onPostCreated={refreshPosts} />
 
           <div className="space-y-4">
-            {posts.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500 animate-fadeIn">
-                Пока нет постов. Будь первым!
+            {feedPosts.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pop">
+                {feedTab === 'following' ? 'Вы ни на кого не подписаны. Подпишитесь, чтобы видеть посты!' : 'Пока нет постов. Будь первым!'}
               </div>
             ) : (
               <>
-                {posts.map((post, index) => (
+                {feedPosts.map((post, index) => (
                   <div key={post.id} style={{ animationDelay: `${index * 0.05}s` }}>
                     <PostCard
                       post={post}
@@ -106,19 +208,27 @@ function FeedContent() {
                       }}
                       onAddComment={handleAddComment}
                       onDeletePost={handleDeletePost}
+                      onEditPost={(postId, content) => {
+                        updatePost(postId, { content });
+                      }}
                       onRepost={setRepostPost}
+                      onBookmark={handleBookmark}
+                      bookmarkedPosts={bookmarkedPosts}
+                      onPin={handlePin}
+                      pinnedPostId={pinnedPostId}
+                      onVote={handleVote}
                       setViewedPosts={setViewedPosts}
                     />
                   </div>
                 ))}
-                {hasMore && (
+                {feedHasMore && (
                   <div className="flex justify-center py-4">
                     <button
-                      onClick={loadMore}
-                      disabled={isLoadingMore}
-                      className="rounded-xl border border-zinc-200 bg-white px-6 py-2.5 text-sm font-medium text-zinc-700 transition-all duration-200 hover:bg-zinc-50 hover:shadow-md disabled:opacity-50"
+                      onClick={handleLoadMore}
+                      disabled={feedLoading}
+                      className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-6 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:shadow-md disabled:opacity-50"
                     >
-                      {isLoadingMore ? (
+                      {feedLoading ? (
                         <span className="flex items-center gap-2">
                           <div className="size-4 animate-spin rounded-full border-2 border-zinc-200 border-t-indigo-600" />
                           Загрузка...

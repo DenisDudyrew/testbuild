@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
+import { auth } from '@/auth';
 
 // GET - получить профиль пользователя
 export async function GET(
@@ -9,6 +9,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const session = await auth();
+
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -18,7 +20,17 @@ export async function GET(
         header: true,
         bio: true,
         createdAt: true,
+        _count: {
+          select: {
+            posts: true,
+            likes: true,
+            comments: true,
+            followers: true,
+            following: true,
+          },
+        },
         posts: {
+          where: { pinned: false },
           select: {
             id: true,
             content: true,
@@ -26,16 +38,8 @@ export async function GET(
             mediaType: true,
             views: true,
             createdAt: true,
-            likes: {
-              select: {
-                userId: true,
-              },
-            },
-            comments: {
-              select: {
-                id: true,
-              },
-            },
+            likes: { select: { userId: true } },
+            comments: { select: { id: true } },
             repostOf: {
               select: {
                 id: true,
@@ -43,25 +47,9 @@ export async function GET(
                 mediaUrl: true,
                 mediaType: true,
                 createdAt: true,
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    avatar: true,
-                  },
-                },
-                likes: {
-                  select: {
-                    userId: true,
-                  },
-                },
-                _count: {
-                  select: {
-                    likes: true,
-                    comments: true,
-                    reposts: true,
-                  },
-                },
+                user: { select: { id: true, username: true, avatar: true } },
+                likes: { select: { userId: true } },
+                _count: { select: { likes: true, comments: true, reposts: true } },
               },
             },
             repostedComment: {
@@ -86,17 +74,25 @@ export async function GET(
               },
             },
           },
-          orderBy: {
-            createdAt: 'desc',
-          },
+          orderBy: { createdAt: 'desc' },
         },
-        _count: {
-          select: {
-            posts: true,
-            likes: true,
-            comments: true,
-          },
-        },
+      },
+    });
+
+    // Get pinned post separately
+    const pinnedPost = await prisma.post.findFirst({
+      where: { userId: id, pinned: true },
+      select: {
+        id: true,
+        content: true,
+        mediaUrl: true,
+        mediaType: true,
+        views: true,
+        createdAt: true,
+        user: { select: { id: true, username: true, avatar: true } },
+        likes: { select: { userId: true } },
+        comments: { select: { id: true } },
+        _count: { select: { likes: true, comments: true, reposts: true } },
       },
     });
 
@@ -112,6 +108,7 @@ export async function GET(
       bio: user.bio,
       createdAt: user.createdAt,
       posts: user.posts,
+      pinnedPost,
       _count: user._count,
     });
   } catch (error) {

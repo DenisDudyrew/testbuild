@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { createPostSchema, validate } from '@/lib/validation';
 
+function parseHashtags(content: string): string[] {
+  const matches = content.match(/#[\wа-яё]+/gi);
+  if (!matches) return [];
+  return [...new Set(matches.map(t => t.toLowerCase()))];
+}
+
 // GET - получить посты с пагинацией
 export async function GET(request: Request) {
   try {
@@ -44,6 +50,22 @@ export async function GET(request: Request) {
             },
           },
           _count: { select: { likes: true, comments: true, reposts: true } },
+          poll: {
+            select: {
+              id: true,
+              question: true,
+              expiresAt: true,
+              createdAt: true,
+              options: {
+                select: {
+                  id: true,
+                  text: true,
+                  votes: { select: { userId: true } },
+                  _count: { select: { votes: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -81,12 +103,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // Parse hashtags from content
+    const hashtagNames = parseHashtags(content || '');
+
     const post = await prisma.post.create({
       data: {
         userId: session.user.id,
         content: content || '',
         mediaUrl: mediaUrl || null,
         mediaType: mediaType || null,
+        hashtags: {
+          create: await Promise.all(hashtagNames.map(async (name) => {
+            const hashtag = await prisma.hashtag.upsert({
+              where: { name },
+              update: {},
+              create: { name },
+            });
+            return { hashtagId: hashtag.id };
+          })),
+        },
       },
       include: {
         user: {

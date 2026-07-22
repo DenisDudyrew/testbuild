@@ -69,7 +69,8 @@ export function usePosts() {
         }
 
         setTotalPosts(total);
-        setHasMore(append ? newPosts.length === 10 : newPosts.length >= 10);
+        // Используем total для правильного hasMore: page * limit < total
+        setHasMore(pageNum * 10 < total);
 
         // Устанавливаем лайкнутые посты
         const userId = session?.user?.id;
@@ -231,6 +232,12 @@ export function usePosts() {
     []
   );
 
+  const updatePost = useCallback((postId: string, updates: Partial<Post>) => {
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, ...updates } : p))
+    );
+  }, []);
+
   return {
     posts,
     comments,
@@ -254,5 +261,6 @@ export function usePosts() {
     handleLike,
     handleToggleComments,
     handleAddComment,
+    updatePost,
   };
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Heart, Repeat2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 import CommentRepostModal from "@/components/CommentRepostModal";
 import type { Comment } from "@/types/post";
@@ -37,7 +38,7 @@ export default function CommentSection({
   const displayComments = showAll ? comments : comments?.slice(0, 5);
 
   return (
-    <div className="mt-4 border-t border-zinc-100 pt-4 animate-fadeIn">
+    <div className="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-4 animate-fadeIn">
       <div className="space-y-3">
         {displayComments?.map((comment: Comment) => (
           <CommentItem
@@ -111,20 +112,17 @@ function CommentItem({
         isHighlighted ? "animate-highlight" : ""
       }`}
     >
-      {comment.user.avatar ? (
-        <img
-          src={comment.user.avatar}
-          alt={comment.user.username}
-          className="size-6 shrink-0 rounded-full object-cover ring-2 ring-zinc-200 transition-all duration-200 hover:ring-indigo-400 cursor-pointer"
-          onClick={() => router.push(`/profile/${comment.user.id}`)}
-        />
-      ) : (
-        <div className="size-6 shrink-0 rounded-full bg-zinc-200 ring-2 ring-zinc-200" />
-      )}
+      <Avatar
+        id={comment.user.id}
+        src={comment.user.avatar}
+        name={comment.user.username}
+        size={6}
+        onClick={() => router.push(`/profile/${comment.user.id}`)}
+      />
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <span
-            className="text-xs font-semibold text-zinc-900 cursor-pointer transition-colors duration-200 hover:text-indigo-600"
+            className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer transition-colors duration-200 hover:text-indigo-600"
             onClick={() => router.push(`/profile/${comment.user.id}`)}
           >
             {comment.user.username}
@@ -136,7 +134,7 @@ function CommentItem({
             })}
           </span>
         </div>
-        <p className="text-xs text-zinc-700">{comment.content}</p>
+        <p className="text-xs text-zinc-700 dark:text-zinc-300">{comment.content}</p>
         <div className="mt-1 flex items-center gap-3">
           <button
             onClick={() => onReply(comment.id, comment.user.username)}
@@ -218,20 +216,17 @@ function ReplyItem({
 
   return (
     <div className="flex gap-2">
-      {reply.user.avatar ? (
-        <img
-          src={reply.user.avatar}
-          alt={reply.user.username}
-          className="size-5 shrink-0 rounded-full object-cover ring-2 ring-zinc-200 transition-all duration-200 hover:ring-indigo-400 cursor-pointer"
-          onClick={() => router.push(`/profile/${reply.user.id}`)}
-        />
-      ) : (
-        <div className="size-5 shrink-0 rounded-full bg-zinc-200 ring-2 ring-zinc-200" />
-      )}
+      <Avatar
+        id={reply.user.id}
+        src={reply.user.avatar}
+        name={reply.user.username}
+        size={5}
+        onClick={() => router.push(`/profile/${reply.user.id}`)}
+      />
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <span
-            className="text-xs font-semibold text-zinc-900 cursor-pointer transition-colors duration-200 hover:text-indigo-600"
+            className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer transition-colors duration-200 hover:text-indigo-600"
             onClick={() => router.push(`/profile/${reply.user.id}`)}
           >
             {reply.user.username}
@@ -243,7 +238,7 @@ function ReplyItem({
             })}
           </span>
         </div>
-        <p className="text-xs text-zinc-700">{reply.content}</p>
+        <p className="text-xs text-zinc-700 dark:text-zinc-300">{reply.content}</p>
         <div className="mt-1 flex items-center gap-3">
           <button
             onClick={() => onReply(reply.id, reply.user.username)}
@@ -309,14 +304,14 @@ function CommentForm({
   return (
     <form onSubmit={handleSubmit} className="mt-3">
       {replyingTo && (
-        <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 animate-fadeIn">
-          <span className="text-xs text-zinc-600">
+        <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-50 dark:bg-zinc-950 px-3 py-2 animate-fadeIn">
+          <span className="text-xs text-zinc-600 dark:text-zinc-400">
             Ответ на <span className="font-semibold">{replyingTo.username}</span>
           </span>
           <button
             type="button"
             onClick={onCancelReply}
-            className="text-xs text-zinc-400 transition-colors duration-200 hover:text-zinc-600"
+            className="text-xs text-zinc-400 dark:text-zinc-400 transition-colors duration-200 hover:text-zinc-600 dark:hover:text-zinc-400"
           >
             <X className="size-3" />
           </button>
@@ -335,7 +330,7 @@ function CommentForm({
           placeholder={
             replyingTo ? `Ответить ${replyingTo.username}...` : "Написать комментарий..."
           }
-          className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 text-xs outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
         <button
           type="submit"

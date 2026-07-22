@@ -4,11 +4,12 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Heart, MessageCircle, Repeat2, Bell } from "lucide-react";
+import Avatar from "@/components/Avatar";
 import Sidebar from "@/components/Sidebar";
 
 interface Notification {
   id: string;
-  type: 'like' | 'comment' | 'repost';
+  type: 'like' | 'comment' | 'repost' | 'comment_like';
   read: boolean;
   createdAt: string;
   postId: string | null;
@@ -87,6 +88,8 @@ export default function NotificationsPage() {
         return <MessageCircle className="size-5 text-indigo-500" />;
       case 'repost':
         return <Repeat2 className="size-5 text-green-500" />;
+      case 'comment_like':
+        return <Heart className="size-5 text-rose-500" />;
       default:
         return <Bell className="size-5 text-zinc-500" />;
     }
@@ -101,6 +104,8 @@ export default function NotificationsPage() {
         return <><span className="font-semibold">{actor}</span> оставил(а) комментарий к вашему посту</>;
       case 'repost':
         return <><span className="font-semibold">{actor}</span> сделал(а) репост вашего поста</>;
+      case 'comment_like':
+        return <><span className="font-semibold">{actor}</span> поставил(а) лайк вашему комментарию</>;
       default:
         return '';
     }
@@ -130,18 +135,18 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <Sidebar />
 
       <div className="pl-60 max-md:pl-0">
         <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6 animate-fadeIn">
         {/* Заголовок */}
         <div className="mb-6 flex items-center gap-4 pl-12 sm:pl-0">
-          <h1 className="text-xl font-bold text-zinc-900 animate-slideIn">Уведомления</h1>
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-white animate-flyInLeft">Уведомления</h1>
           {notifications.some(n => !n.read) && (
             <button
               onClick={markAllRead}
-              className="ml-auto text-sm text-indigo-600 hover:text-indigo-700"
+              className="ml-auto text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
             >
               Прочитать все
             </button>
@@ -154,33 +159,25 @@ export default function NotificationsPage() {
             <div className="size-8 animate-spin rounded-full border-3 border-zinc-200 border-t-indigo-600" />
           </div>
         ) : notifications.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500 animate-fadeIn">
-            <Bell className="mx-auto mb-3 size-10 text-zinc-300" />
+              <div               className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pop">
+            <Bell className="mx-auto mb-3 size-10 text-zinc-300 dark:text-zinc-600" />
             <p className="text-sm">Нет уведомлений</p>
           </div>
         ) : (
           <div className="space-y-1">
-            {notifications.map((notification) => (
+            {notifications.map((notification, idx) => (
               <button
                 key={notification.id}
                 onClick={() => handleClick(notification)}
-                className={`flex w-full items-start gap-4 rounded-2xl px-4 py-4 text-left transition-colors hover:bg-zinc-100 cursor-pointer ${
+                className={`flex w-full items-start gap-4 rounded-2xl px-4 py-4 text-left transition-all duration-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 cursor-pointer animate-flyInUp animate-stagger-${Math.min(idx + 1, 8)} ${
                   !notification.read
-                    ? 'bg-indigo-50/60 border-l-4 border-indigo-500'
+                    ? 'bg-indigo-50/60 dark:bg-indigo-500/10 border-l-4 border-indigo-500'
                     : 'border-l-4 border-transparent'
                 }`}
               >
                 {/* Аватар актора */}
                 <div className="relative shrink-0">
-                  {notification.actor.avatar ? (
-                    <img
-                      src={notification.actor.avatar}
-                      alt={notification.actor.username}
-                      className="size-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="size-12 rounded-full bg-zinc-200" />
-                  )}
+                  <Avatar id={notification.actor.id} src={notification.actor.avatar} name={notification.actor.username} size={12} />
                   {/* Иконка типа уведомления */}
                   <div className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-white bg-white">
                     {getIcon(notification.type)}
@@ -189,15 +186,15 @@ export default function NotificationsPage() {
 
                 {/* Текст */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-zinc-700 leading-relaxed">
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                     {getText(notification)}
                   </p>
                   {notification.post && (
-                    <p className="mt-1 truncate text-sm text-zinc-400">
+                    <p className="mt-1 truncate text-sm text-zinc-400 dark:text-zinc-500">
                       «{notification.post.content}»
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-zinc-400">
+                  <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
                     {formatTime(notification.createdAt)}
                   </p>
                 </div>

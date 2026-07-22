@@ -3,9 +3,45 @@ name: Deploy to Production
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout → код
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run unit & integration tests
+        run: npm test
+        env:
+          ENCRYPTION_KEY: test-key-for-ci-only
+          AUTH_SECRET: test-auth-secret-for-ci
+
+      - name: Run linter
+        run: npm run lint
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,8 +72,9 @@ jobs:
             ghcr.io/${{ steps.repo.outputs.repo }}:${{ github.sha }}
 
   deploy:
-    needs: build-and-push
+    needs: [test, build-and-push]
     runs-on: self-hosted
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout → код
         uses: actions/checkout@v4

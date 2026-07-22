@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { use } from "react";
 import { Wind, Calendar, Edit, Trash2, Camera, Upload, Repeat2, Heart, MessageCircle, MessageSquareMore } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 import Sidebar from "@/components/Sidebar";
 import PostForm from "@/components/PostForm";
@@ -75,6 +76,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
   const [editForm, setEditForm] = useState({
     username: "",
     avatar: "",
@@ -94,6 +97,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
   useEffect(() => {
     loadUser();
+    loadFollowStatus();
   }, [resolvedParams.id]);
 
   const loadUser = async () => {
@@ -117,6 +121,30 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       console.error('Failed to load user:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFollowStatus = async () => {
+    try {
+      const res = await fetch(`/api/users/${resolvedParams.id}/follow`);
+      if (res.ok) {
+        const data = await res.json();
+        setIsFollowing(data.isFollowing);
+        setFollowerCount(data.followerCount);
+      }
+    } catch {}
+  };
+
+  const handleFollow = async () => {
+    try {
+      const res = await fetch(`/api/users/${resolvedParams.id}/follow`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setIsFollowing(data.followed);
+        setFollowerCount(prev => data.followed ? prev + 1 : prev - 1);
+      }
+    } catch (error) {
+      console.error('Failed to toggle follow:', error);
     }
   };
 
@@ -224,16 +252,16 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-        <div className="text-zinc-500 animate-pulse">Загрузка...</div>
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="text-zinc-500 dark:text-zinc-400 animate-pulse">Загрузка...</div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 animate-fadeIn">
-        <div className="text-zinc-500">Пользователь ��е найден</div>
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 animate-fadeIn">
+        <div className="text-zinc-500 dark:text-zinc-400">Пользователь ��е найден</div>
       </div>
     );
   }
@@ -241,13 +269,13 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const isOwnProfile = session?.user?.id === user.id;
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <Sidebar />
 
       <div className="pl-60 max-md:pl-0">
         <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6 animate-fadeIn">
         {/* Шапка профиля */}
-        <div className="mb-6 animate-slideIn">
+        <div className="mb-6 animate-flyInUp">
           <div className="relative h-36 md:h-48 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600">
             {user.header && (
               <img src={user.header} alt="Header" className="h-full w-full object-cover" />
@@ -256,19 +284,19 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           
           <div className="relative -mt-16 px-4 text-center md:text-left">
               <div className="flex flex-col md:flex-row items-center md:items-end gap-4">
-              <div className="size-24 md:size-32 rounded-full border-4 border-white bg-zinc-200 overflow-hidden shadow-lg ring-2 ring-indigo-300">
+              <div className="size-24 md:size-32 rounded-full border-4 border-white dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-lg ring-2 ring-indigo-300">
                 {user.avatar ? (
                   <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-zinc-400">
+                  <div className="flex h-full w-full items-center justify-center text-zinc-400 dark:text-zinc-500">
                     <Wind className="size-16" />
                   </div>
                 )}
               </div>
               
               <div className="mb-2 flex-1 text-center md:text-left">
-                <h1 className="text-xl md:text-2xl font-bold text-zinc-900">{user.username}</h1>
-                <div className="flex items-center gap-2 text-sm text-zinc-500">
+                <h1 className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-white">{user.username}</h1>
+                <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
                   <Calendar className="size-4" />
                   {new Date(user.createdAt).toLocaleDateString('ru-RU')}
                 </div>
@@ -278,7 +306,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="mb-2 flex gap-2 justify-center md:justify-start">
                   <button
                     onClick={() => setIsEditing(!isEditing)}
-                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                   >
                     <Edit className="size-4" />
                     {isEditing ? 'Отмена' : 'Редактировать'}
@@ -295,22 +323,22 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             </div>
 
             {user.bio && (
-              <p className="mt-4 text-sm text-zinc-700">{user.bio}</p>
+              <p className="mt-4 text-sm text-zinc-700 dark:text-zinc-300">{user.bio}</p>
             )}
 
             {/* Статистика */}
             <div className="mt-4 flex justify-center md:justify-start gap-6">
               <div className="text-center">
-                <div className="text-lg font-semibold text-zinc-900">{user._count.posts}</div>
-                <div className="text-xs text-zinc-500">Постов</div>
+                <div className="text-lg font-semibold text-zinc-900 dark:text-white">{user._count.posts}</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">Постов</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-semibold text-zinc-900">{user._count.likes}</div>
-                <div className="text-xs text-zinc-500">Лайков</div>
+                <div className="text-lg font-semibold text-zinc-900 dark:text-white">{user._count.likes}</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">Лайков</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-semibold text-zinc-900">{user._count.comments}</div>
-                <div className="text-xs text-zinc-500">Комментариев</div>
+                <div className="text-lg font-semibold text-zinc-900 dark:text-white">{user._count.comments}</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">Комментариев</div>
               </div>
             </div>
           </div>
@@ -318,28 +346,28 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
         {/* Форма редактирования */}
         {isEditing && isOwnProfile && (
-          <div className="mb-6 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-4 text-sm font-semibold text-zinc-900">Редактировать профиль</h3>
+          <div className="mb-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold text-zinc-900 dark:text-white">Редактировать профиль</h3>
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500">Имя пользователя</label>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Имя пользователя</label>
                 <input
                   type="text"
                   value={editForm.username}
                   onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                  className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500">Аватар</label>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Аватар</label>
                 <div className="flex items-center flex-wrap gap-3">
-                  <div className="size-14 md:size-16 shrink-0 rounded-full bg-zinc-100 overflow-hidden border-2 border-zinc-200 aspect-square">
+                  <div className="size-14 md:size-16 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700 aspect-square">
                     {avatarPreview ? (
                       <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
                     ) : user.avatar ? (
                       <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-zinc-300">
+                      <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                         <Camera className="size-6" />
                       </div>
                     )}
@@ -354,7 +382,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   <button
                     type="button"
                     onClick={() => avatarInputRef.current?.click()}
-                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                   >
                     <Upload className="size-3.5" />
                     {avatarFile ? 'Изменить' : 'Загрузить'}
@@ -375,15 +403,15 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500">Шапка профиля</label>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Шапка профиля</label>
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-24 shrink-0 rounded-lg bg-zinc-100 overflow-hidden border-2 border-zinc-200">
+                  <div className="h-12 w-24 shrink-0 rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
                     {headerPreview ? (
                       <img src={headerPreview} alt="Preview" className="h-full w-full object-cover" />
                     ) : user.header ? (
                       <img src={user.header} alt="Header" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-zinc-300">
+                      <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                         <Camera className="size-5" />
                       </div>
                     )}
@@ -398,7 +426,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                   <button
                     type="button"
                     onClick={() => headerInputRef.current?.click()}
-                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                    className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                   >
                     <Upload className="size-3.5" />
                     {headerFile ? 'Изменить' : 'Загрузить'}
@@ -419,11 +447,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500">О себе</label>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">О себе</label>
                 <textarea
                   value={editForm.bio}
                   onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                  className="w-full resize-none rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full resize-none rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   rows={3}
                 />
               </div>
@@ -440,21 +468,21 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
         {/* Модальное окно удаления */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fadeIn">
-            <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg animate-scaleIn">
-              <h3 className="mb-4 text-lg font-semibold text-zinc-900">Удалить аккаунт?</h3>
-              <p className="mb-4 text-sm text-zinc-600">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-6 shadow-lg animate-pop">
+              <h3 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">Удалить аккаунт?</h3>
+              <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
                 Это действие необратимо. Все ваши посты, лайки и комментарии будут удалены.
               </p>
               <div className="mb-4">
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   Подтвердите пароль
                 </label>
                 <input
                   type="password"
                   value={deletePassword}
                   onChange={(e) => setDeletePassword(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-4 py-2 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
                 />
               </div>
               <div className="flex gap-2">
@@ -463,7 +491,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     setShowDeleteConfirm(false);
                     setDeletePassword("");
                   }}
-                  className="flex-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                 >
                   Отмена
                 </button>
@@ -486,37 +514,37 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
         {/* Посты пользователя */}
         <div className="space-y-4 animate-fadeIn">
-          <h2 className="text-lg font-semibold text-zinc-900 animate-slideIn pl-12 sm:pl-0">Посты</h2>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white animate-flyInLeft pl-12 sm:pl-0">Посты</h2>
           {user.posts.length === 0 ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500 animate-fadeIn">
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pop">
               Пока нет постов
             </div>
           ) : (
             user.posts.map((post, idx) => (
-              <article key={post.id} className={`rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm animate-slideUp animate-stagger-${Math.min(idx + 1, 8)}`}>
+              <article key={post.id} className={`rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-4 shadow-sm animate-slideUp animate-stagger-${Math.min(idx + 1, 8)} hover:border-indigo-500/20 transition-all duration-300`}>
                 <div className="flex items-start gap-3">
-                  <div className="size-10 shrink-0 rounded-full bg-zinc-200 overflow-hidden">
+                  <div className="size-10 shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
                     {user.avatar ? (
                       <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-zinc-900">
+                      <span className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
                         {user.username}
                       </span>
-                      <span className="font-mono text-xs text-zinc-400">
+                      <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500">
                         {new Date(post.createdAt).toLocaleTimeString([], { 
                           hour: '2-digit', 
                           minute: '2-digit' 
                         })}
                       </span>
-                      <span className="text-xs text-zinc-400">• {post.views} просмотров</span>
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500">• {post.views} просмотров</span>
                     </div>
-                    <p className="mt-1.5 text-sm text-zinc-700">{post.content}</p>
+                    <p className="mt-1.5 text-sm text-zinc-700 dark:text-zinc-300">{post.content}</p>
                     
                     {post.mediaUrl && (
-                      <div className="mt-3 overflow-hidden rounded-xl bg-black/5">
+                      <div className="mt-3 overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
                         {post.mediaType === 'image' ? (
                           <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[80vh] object-contain" />
                         ) : post.mediaType === 'video' || post.mediaType === 'circle' ? (
@@ -526,26 +554,18 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     )}
 
                     {post.repostOf && (
-                      <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                      <div className="mt-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 p-3">
                         <div className="flex items-center gap-2">
                           <Repeat2 className="size-3 text-zinc-400" />
-                          <span className="text-xs text-zinc-500">Репост</span>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">Репост</span>
                         </div>
                         <div className="mt-2 flex items-center gap-2">
-                          {post.repostOf.user.avatar ? (
-                            <img
-                              src={post.repostOf.user.avatar}
-                              alt={post.repostOf.user.username}
-                              className="size-5 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="size-5 rounded-full bg-zinc-300" />
-                          )}
-                          <span className="text-xs font-semibold text-zinc-900">
+                          <Avatar id={post.repostOf.user.id} src={post.repostOf.user.avatar} name={post.repostOf.user.username} size={5} />
+                          <span className="text-xs font-semibold text-zinc-900 dark:text-white">
                             {post.repostOf.user.username}
                           </span>
                         </div>
-                        <p className="mt-1 text-sm text-zinc-700">{post.repostOf.content}</p>
+                        <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{post.repostOf.content}</p>
                         {post.repostOf.mediaUrl && (
                           <div className="mt-2 overflow-hidden rounded-lg">
                             {post.repostOf.mediaType === 'image' ? (
@@ -559,37 +579,31 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     )}
 
                     {post.repostedComment && (
-                      <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
+                      <div className="mt-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/30 p-3">
                         <div className="flex items-center gap-2">
                           <MessageSquareMore className="size-3 text-indigo-400" />
-                          <span className="text-xs text-indigo-500">Репост комментария</span>
+                          <span className="text-xs text-indigo-500 dark:text-indigo-400">Репост комментария</span>
                         </div>
                         <div className="mt-2 flex items-center gap-2">
-                          {post.repostedComment.user.avatar ? (
-                            <img src={post.repostedComment.user.avatar} alt={post.repostedComment.user.username}
-                              className="size-5 rounded-full object-cover ring-1 ring-indigo-200" />
-                          ) : <div className="size-5 rounded-full bg-indigo-200" />}
-                          <span className="text-xs font-semibold text-zinc-900">
+                          <Avatar id={post.repostedComment.user.id} src={post.repostedComment.user.avatar} name={post.repostedComment.user.username} size={5} />
+                          <span className="text-xs font-semibold text-zinc-900 dark:text-white">
                             {post.repostedComment.user.username}
                           </span>
                         </div>
-                        <p className="mt-1 text-sm text-zinc-700">{post.repostedComment.content}</p>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
+                        <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{post.repostedComment.content}</p>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
                           <Heart className="size-3" /> {post.repostedComment._count?.likes || 0}
                         </div>
                         {post.repostedComment.post && (
-                          <div className="mt-2 rounded-lg border border-zinc-200 bg-white p-2">
+                          <div className="mt-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-2">
                             <div className="flex items-center gap-2">
-                              {post.repostedComment.post.user.avatar ? (
-                                <img src={post.repostedComment.post.user.avatar} alt={post.repostedComment.post.user.username}
-                                  className="size-4 rounded-full object-cover" />
-                              ) : <div className="size-4 rounded-full bg-zinc-200" />}
-                              <span className="text-xs font-semibold text-zinc-900">{post.repostedComment.post.user.username}</span>
-                              <span className="text-xs text-zinc-400">
+                              <Avatar id={post.repostedComment.post.user.id} src={post.repostedComment.post.user.avatar} name={post.repostedComment.post.user.username} size={4} />
+                              <span className="text-xs font-semibold text-zinc-900 dark:text-white">{post.repostedComment.post.user.username}</span>
+                              <span className="text-xs text-zinc-400 dark:text-zinc-500">
                                 {new Date(post.repostedComment.post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                            <p className="mt-1 text-xs text-zinc-600">{post.repostedComment.post.content}</p>
+                            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{post.repostedComment.post.content}</p>
                             {post.repostedComment.post.mediaUrl && (
                               <div className="mt-1 overflow-hidden rounded-lg">
                                 {post.repostedComment.post.mediaType === 'image' ? (
@@ -604,12 +618,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                       </div>
                     )}
 
-                    <div className="mt-4 flex items-center gap-6">
-                      <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                      <div className="mt-4 flex items-center gap-6">
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500">
                         <Heart className="size-4" />
                         {post.likes.length}
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500">
                         <MessageCircle className="size-4" />
                         {post.comments?.length || 0}
                       </div>

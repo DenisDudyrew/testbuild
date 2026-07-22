@@ -122,18 +122,18 @@ export default function SetupPage() {
   if (!session) return null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-8 shadow-sm">
         <div className="flex items-center gap-2 mb-6">
           <Wind className="size-8 text-indigo-600" />
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">ZEPHYR</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">ZEPHYR</h1>
         </div>
-        <p className="mb-6 text-sm text-zinc-500">
+        <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
           Заполните информацию об аккаунте
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+          <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 px-4 py-2 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
@@ -141,15 +141,15 @@ export default function SetupPage() {
         <div className="space-y-6">
           {/* Аватар */}
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               Аватар
             </label>
             <div className="flex items-center gap-4">
-              <div className="size-20 shrink-0 rounded-full bg-zinc-100 overflow-hidden border-2 border-zinc-200">
+              <div className="size-20 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
                 {avatarPreview ? (
                   <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-zinc-300">
+                  <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                     <Camera className="size-8" />
                   </div>
                 )}
@@ -165,7 +165,7 @@ export default function SetupPage() {
                 <button
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
-                  className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                 >
                   <Upload className="size-3.5" />
                   {avatarFile ? 'Изменить' : 'Загрузить'}
@@ -189,15 +189,15 @@ export default function SetupPage() {
 
           {/* Шапка профиля */}
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               Шапка профиля
             </label>
             <div className="flex items-center gap-4">
-              <div className="h-16 w-32 shrink-0 rounded-lg bg-zinc-100 overflow-hidden border-2 border-zinc-200">
+              <div className="h-16 w-32 shrink-0 rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
                 {headerPreview ? (
                   <img src={headerPreview} alt="Preview" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-zinc-300">
+                  <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                     <Camera className="size-6" />
                   </div>
                 )}
@@ -213,7 +213,7 @@ export default function SetupPage() {
                 <button
                   type="button"
                   onClick={() => headerInputRef.current?.click()}
-                  className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                 >
                   <Upload className="size-3.5" />
                   {headerFile ? 'Изменить' : 'Загрузить'}
@@ -237,14 +237,14 @@ export default function SetupPage() {
 
           {/* О себе */}
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               О себе
             </label>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Расскажите о себе..."
-              className="w-full resize-none rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              className="w-full resize-none rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               rows={3}
               maxLength={500}
             />
@@ -254,7 +254,7 @@ export default function SetupPage() {
           <div className="flex gap-3">
             <button
               onClick={handleSkip}
-              className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
             >
               Пропустить
             </button>

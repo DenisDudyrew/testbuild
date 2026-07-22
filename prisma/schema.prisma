@@ -8,73 +8,118 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  emailHash       String   @unique
-  emailEncrypted  String
-  emailVerified   Boolean  @default(false)
-  verificationCode      String?
+  id                      String                    @id @default(cuid())
+  username                String                    @unique
+  password                String
+  emailHash               String                    @unique
+  emailEncrypted          String
+  emailVerified           Boolean                   @default(false)
+  verificationCode        String?
   verificationCodeExpires DateTime?
-  avatar    String?  @default("/default-avatar.png")
-  header    String?  @default("/default-header.png")
-  bio      String?
-  role      String   @default("user") // 'user' or 'admin'
-  createdAt DateTime @default(now())
-  posts     Post[]
-  likes     Like[]
-  comments  Comment[]
-  commentLikes CommentLike[]
-  notifications          Notification[] @relation("UserNotifications")
-  actedNotifications     Notification[] @relation("ActorNotifications")
+  avatar                  String?                   @default("/default-avatar.png")
+  header                  String?                   @default("/default-header.png")
+  bio                     String?
+  role                    String                    @default("user") // 'user' or 'admin'
+  createdAt               DateTime                  @default(now())
+  posts                   Post[]
+  likes                   Like[]
+  comments                Comment[]
+  commentLikes            CommentLike[]
+  notifications           Notification[]            @relation("UserNotifications")
+  actedNotifications      Notification[]            @relation("ActorNotifications")
+  followers               Follow[]                   @relation("Following")
+  following               Follow[]                   @relation("Follower")
+  bookmarks               Bookmark[]
+  conversations           ConversationParticipant[]
+  messages                Message[]
+  messageReactions        MessageReaction[]
+  lastSeenAt              DateTime?
+  pinnedMessages          PinnedMessage[]
+  votes                   Vote[]
 }
 
 model Post {
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content           String         @db.Text
+  mediaUrl          String?
+  mediaType         String? // 'image', 'video', 'circle'
+  views             Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  likes             Like[]
+  comments          Comment[]
+  repostOfId        String?        @map("repost_of_id")
+  repostOf          Post?          @relation("Reposts", fields: [repostOfId], references: [id], onDelete: SetNull)
+  reposts           Post[]         @relation("Reposts")
+  repostedCommentId String?        @map("reposted_comment_id")
+  repostedComment   Comment?       @relation("CommentReposts", fields: [repostedCommentId], references: [id], onDelete: SetNull)
+  notifications     Notification[] @relation("PostNotifications")
+  pinned            Boolean        @default(false)
+  hashtags          PostHashtag[]
+  bookmarks         Bookmark[]
+  poll              Poll?          @relation("PostPoll")
+}
+
+model Poll {
+  id        String       @id @default(cuid())
+  postId    String       @unique
+  post      Post         @relation("PostPoll", fields: [postId], references: [id], onDelete: Cascade)
+  question  String
+  expiresAt DateTime?
+  createdAt DateTime     @default(now())
+  options   PollOption[]
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  text   String
+  votes  Vote[]
+
+  @@index([pollId])
+}
+
+model Vote {
   id        String   @id @default(cuid())
+  optionId  String
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content   String   @db.Text
-  mediaUrl  String?
-  mediaType String?  // 'image', 'video', 'circle'
-  views     Int      @default(0)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  likes     Like[]
-  comments  Comment[]
-  repostOfId String?  @map("repost_of_id")
-  repostOf   Post?    @relation("Reposts", fields: [repostOfId], references: [id], onDelete: SetNull)
-  reposts    Post[]   @relation("Reposts")
-  repostedCommentId String?  @map("reposted_comment_id")
-  repostedComment   Comment? @relation("CommentReposts", fields: [repostedCommentId], references: [id], onDelete: SetNull)
-  notifications          Notification[] @relation("PostNotifications")
+
+  @@unique([optionId, userId])
+  @@index([userId])
 }
 
 model Like {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId        String
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  notifications Notification[] @relation("LikeNotifications")
+
   @@unique([userId, postId])
-  notifications          Notification[] @relation("LikeNotifications")
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parentId  String?
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
-  content   String
-  createdAt DateTime @default(now())
-  likes     CommentLike[]
-  repostedInPosts Post[] @relation("CommentReposts")
-  notifications          Notification[] @relation("CommentNotifications")
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId          String
+  post            Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId        String?
+  parent          Comment?       @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         Comment[]      @relation("CommentReplies")
+  content         String
+  createdAt       DateTime       @default(now())
+  likes           CommentLike[]
+  repostedInPosts Post[]         @relation("CommentReposts")
+  notifications   Notification[] @relation("CommentNotifications")
 }
 
 model CommentLike {
@@ -93,7 +138,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // 'like', 'comment', 'repost'
+  type      String // 'like', 'comment', 'repost'
   read      Boolean  @default(false)
   actorId   String
   actor     User     @relation("ActorNotifications", fields: [actorId], references: [id], onDelete: Cascade)
@@ -106,6 +151,121 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, read])
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  type          String   @default("direct") // "direct" | "group"
+  name          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastMessageAt DateTime @default(now())
+
+  participants   ConversationParticipant[]
+  messages       Message[]
+  pinnedMessages PinnedMessage[]
+}
+
+model ConversationParticipant {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime     @default(now())
+  typingAt       DateTime?
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  conversationId String
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content        String            @db.Text // encrypted at rest
+  replyToId      String?
+  replyTo        Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[]         @relation("MessageReplies")
+  mediaUrl       String?
+  mediaType      String? // 'image', 'video', 'file'
+  mediaName      String?
+  createdAt      DateTime          @default(now())
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  reactions      MessageReaction[]
+  pinnedBy       PinnedMessage[]
+
+  @@index([conversationId, createdAt])
+  @@index([conversationId, mediaType])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String // unicode emoji, e.g. "❤️"
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+model Hashtag {
+  id    String       @id @default(cuid())
+  name  String       @unique
+  posts PostHashtag[]
+}
+
+model PostHashtag {
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtagId String
+  hashtag   Hashtag  @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, hashtagId])
+  @@map("post_hashtags")
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@map("bookmarks")
+}
+
+model PinnedMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId      String
+  message        Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  pinnedById     String
+  pinnedBy       User         @relation(fields: [pinnedById], references: [id], onDelete: Cascade)
+  pinnedAt       DateTime     @default(now())
+
+  @@unique([conversationId, messageId])
+  @@map("pinned_messages")
 }
 
 model ReleaseNote {

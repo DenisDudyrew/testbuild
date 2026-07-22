@@ -9,3 +9,13 @@ docker-compose.yml
 .next
 public/uploads/
 README.md
+e2e/
+.github/
+Zephyr/
+deploy.sh
+server-setup.sh
+messenger-mockup*.html
+vitest.config.ts
+playwright.config.ts
+eslint.config.mjs
+tsconfig.tsbuildinfo

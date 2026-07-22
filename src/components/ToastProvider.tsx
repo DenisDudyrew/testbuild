@@ -79,7 +79,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`rounded-lg px-4 py-3 text-sm font-medium shadow-lg transition-all duration-300 ${
+            className={`rounded-lg px-4 py-3 text-sm font-medium shadow-lg transition-all duration-300 glass-strong ${
               toast.type === "error"
                 ? "bg-red-600 text-white"
                 : toast.type === "success"
@@ -96,10 +96,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeConfirm}>
           <div
-            className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg"
+            className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl p-6 shadow-lg animate-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm text-zinc-900">{confirm.message}</p>
+            <p className="text-sm text-zinc-900 dark:text-zinc-100">{confirm.message}</p>
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={closeConfirm}
@@ -125,10 +125,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {alert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeAlert}>
           <div
-            className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg"
+            className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl p-6 shadow-lg animate-pop"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm text-zinc-900">{alert.message}</p>
+            <p className="text-sm text-zinc-900 dark:text-zinc-100">{alert.message}</p>
             <div className="mt-6 flex justify-end">
               <button
                 onClick={closeAlert}

@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ["socket.io", "socket.io-client"],
 };
 
 export default nextConfig;

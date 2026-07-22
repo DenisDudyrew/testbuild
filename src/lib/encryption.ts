@@ -3,9 +3,9 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 
 function getKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY || process.env.AUTH_SECRET;
+  const secret = process.env.ENCRYPTION_KEY;
   if (!secret) {
-    throw new Error('ENCRYPTION_KEY or AUTH_SECRET must be set');
+    throw new Error('ENCRYPTION_KEY must be set in environment variables. AUTH_SECRET is not a valid fallback for encryption.');
   }
   return crypto.createHash('sha256').update(secret).digest();
 }

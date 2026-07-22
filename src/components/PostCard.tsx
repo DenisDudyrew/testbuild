@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, MessageCircle, Repeat2, Edit2, X, Trash2, MessageSquareMore } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Edit2, X, Trash2, MessageSquareMore, Bookmark, Pin } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
 import ViewTracker from "@/components/ViewTracker";
 import CommentSection from "@/components/CommentSection";
 import { useToast } from "@/components/ToastProvider";
+import PollComponent from "@/components/PollComponent";
 import type { Post } from "@/types/post";
 
 interface PostCardProps {
@@ -22,7 +24,13 @@ interface PostCardProps {
   onToggleShowAll: (postId: string) => void;
   onAddComment: (postId: string, content: string, parentId?: string) => void;
   onDeletePost: (postId: string) => void;
+  onEditPost?: (postId: string, content: string) => void;
   onRepost: (post: Post) => void;
+  onBookmark?: (postId: string) => void;
+  bookmarkedPosts?: Set<string>;
+  onPin?: (postId: string) => void;
+  pinnedPostId?: string | null;
+  onVote?: (pollId: string, optionId: string) => void;
   setViewedPosts: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
@@ -40,7 +48,13 @@ export default function PostCard({
   onToggleShowAll,
   onAddComment,
   onDeletePost,
+  onEditPost,
   onRepost,
+  onBookmark,
+  bookmarkedPosts,
+  onPin,
+  pinnedPostId,
+  onVote,
   setViewedPosts,
 }: PostCardProps) {
   const router = useRouter();
@@ -69,7 +83,7 @@ export default function PostCard({
       if (response.ok) {
         setEditingPost(null);
         setEditContent("");
-        window.location.reload();
+        onEditPost?.(postId, editContent);
       } else {
         const data = await response.json();
         showAlert(data.error || "Failed to edit post");
@@ -88,41 +102,35 @@ export default function PostCard({
   return (
     <article
       id={`post-${post.id}`}
-      className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md animate-rise"
+      className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-500/20 animate-rise"  
     >
       <div className="flex items-start gap-3">
-        {post.user.avatar ? (
-          <img
-            src={post.user.avatar}
-            alt={post.user.username}
-            className="size-10 shrink-0 rounded-full object-cover cursor-pointer ring-2 ring-zinc-200 transition-all duration-200 hover:ring-indigo-400"
-            onClick={() => router.push(`/profile/${post.user.id}`)}
-          />
-        ) : (
-          <div
-            className="size-10 shrink-0 rounded-full bg-zinc-200 cursor-pointer ring-2 ring-zinc-200 transition-all duration-200 hover:ring-indigo-400"
-            onClick={() => router.push(`/profile/${post.user.id}`)}
-          />
-        )}
+        <Avatar
+          id={post.user.id}
+          src={post.user.avatar}
+          name={post.user.username}
+          size={10}
+          onClick={() => router.push(`/profile/${post.user.id}`)}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className="truncate text-sm font-semibold text-zinc-900 cursor-pointer transition-colors duration-200 hover:text-indigo-600"
+              className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer transition-colors duration-200 hover:text-indigo-600 dark:hover:text-indigo-400"
               onClick={() => router.push(`/profile/${post.user.id}`)}
             >
               {post.user.username}
             </span>
-            <span className="font-mono text-xs text-zinc-400">
+            <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500">
               {new Date(post.createdAt).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
             </span>
-            <span className="text-xs text-zinc-400">• {post.views} просмотров</span>
+            <span className="text-xs text-zinc-400 dark:text-zinc-500">• {post.views} просмотров</span>
             {canEditPost(post) && editingPost !== post.id && (
               <button
                 onClick={() => { setEditingPost(post.id); setEditContent(post.content); }}
-                className="flex items-center gap-1 text-xs text-zinc-400 transition-colors duration-200 hover:text-indigo-600"
+                className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 transition-colors duration-200 hover:text-indigo-600 dark:hover:text-indigo-400"
               >
                 <Edit2 className="size-3" /> Редактировать
               </button>
@@ -130,7 +138,7 @@ export default function PostCard({
             {canDeletePost(post) && (
               <button
                 onClick={() => handleDelete(post.id)}
-                className="flex items-center gap-1 text-xs text-zinc-400 transition-colors duration-200 hover:text-red-600"
+                className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 transition-colors duration-200 hover:text-red-600 dark:hover:text-red-400"
               >
                 <Trash2 className="size-3" /> Удалить
               </button>
@@ -140,22 +148,55 @@ export default function PostCard({
           {editingPost === post.id ? (
             <div className="mt-2">
               <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)}
-                className="w-full resize-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full resize-none rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:text-zinc-100"
                 rows={3} maxLength={1000}
               />
-              <div className="mt-2 flex gap-2">
-                <button onClick={() => handleEditPost(post.id)}
-                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-all duration-200 hover:bg-indigo-700 hover:scale-105 active:scale-95">
-                  Сохранить
-                </button>
-                <button onClick={() => { setEditingPost(null); setEditContent(""); }}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-all duration-200 hover:bg-zinc-50">
-                  <X className="size-3 inline" />
-                </button>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                  {editContent.length}/1000
+                </span>
+                <div className="flex gap-2">
+                  <button onClick={() => handleEditPost(post.id)}
+                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-all duration-200 hover:bg-indigo-700 hover:scale-105 active:scale-95">
+                    Сохранить
+                  </button>
+                  <button onClick={() => { setEditingPost(null); setEditContent(""); }}
+                    className="rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <X className="size-3 inline" />
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
-            <p className="mt-1.5 text-sm text-zinc-700">{post.content}</p>
+            <p className="mt-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+            {post.content.split(/(#[а-яё\w]+|@[\wа-яё]+)/gi).filter(Boolean).map((part, i) =>
+              part.startsWith('#') ? (
+                <span
+                  key={i}
+                  className="text-indigo-500 dark:text-indigo-400 cursor-pointer hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/search?hashtag=${encodeURIComponent(part.slice(1))}`);
+                  }}
+                >
+                  {part}
+                </span>
+              ) : part.startsWith('@') ? (
+                <span
+                  key={i}
+                  className="text-cyan-500 dark:text-cyan-400 cursor-pointer hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/search?q=${encodeURIComponent(part.slice(1))}`);
+                  }}
+                >
+                  {part}
+                </span>
+              ) : (
+                part
+              )
+            )}
+          </p>
           )}
 
           {post.mediaUrl && (
@@ -169,37 +210,41 @@ export default function PostCard({
           )}
 
           {post.repostOf && (
-            <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 transition-all duration-200 hover:bg-zinc-100">
+            <div className="mt-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-3 transition-all duration-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/70">
               <div className="flex items-center gap-2">
-                <Repeat2 className="size-3 text-zinc-400" />
-                <span className="text-xs text-zinc-500">Репост</span>
+                <Repeat2 className="size-3 text-zinc-400 dark:text-zinc-500" />
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">Репост</span>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                {post.repostOf.user.avatar ? (
-                  <img src={post.repostOf.user.avatar} alt={post.repostOf.user.username}
-                    className="size-5 rounded-full object-cover ring-1 ring-zinc-200" />
-                ) : <div className="size-5 rounded-full bg-zinc-300" />}
-                <span className="text-xs font-semibold text-zinc-900 cursor-pointer transition-colors duration-200 hover:text-indigo-600"
+                <Avatar
+                  id={post.repostOf.user.id}
+                  src={post.repostOf.user.avatar}
+                  name={post.repostOf.user.username}
+                  size={5}
+                />
+                <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer transition-colors duration-200 hover:text-indigo-600 dark:hover:text-indigo-400"
                   onClick={() => { if (post.repostOf) router.push(`/profile/${post.repostOf.user.id}`); }}>
                   {post.repostOf.user.username}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-zinc-700">{post.repostOf.content}</p>
+              <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{post.repostOf.content}</p>
             </div>
           )}
 
           {post.repostedComment && (
-            <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 transition-all duration-200 hover:bg-indigo-50">
+            <div className="mt-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/10 p-3 transition-all duration-200 hover:bg-indigo-50 dark:hover:bg-indigo-500/20">
               <div className="flex items-center gap-2">
                 <MessageSquareMore className="size-3 text-indigo-400" />
-                <span className="text-xs text-indigo-500">Репост комментария</span>
+                <span className="text-xs text-indigo-500 dark:text-indigo-400">Репост комментария</span>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                {post.repostedComment.user.avatar ? (
-                  <img src={post.repostedComment.user.avatar} alt={post.repostedComment.user.username}
-                    className="size-5 rounded-full object-cover ring-1 ring-indigo-200" />
-                ) : <div className="size-5 rounded-full bg-indigo-200" />}
-                <span className="text-xs font-semibold text-zinc-900 cursor-pointer transition-colors duration-200 hover:text-indigo-600"
+                  <Avatar
+                    id={post.repostedComment.user.id}
+                    src={post.repostedComment.user.avatar}
+                    name={post.repostedComment.user.username}
+                    size={5}
+                  />
+                <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer transition-colors duration-200 hover:text-indigo-600 dark:hover:text-indigo-400"
                   onClick={() => {
                     if (post.repostedComment) {
                       router.push(`/profile/${post.repostedComment.user.id}`);
@@ -208,17 +253,19 @@ export default function PostCard({
                   {post.repostedComment.user.username}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-zinc-700">{post.repostedComment.content}</p>
-              <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
+              <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{post.repostedComment.content}</p>
+              <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
                 <Heart className="size-3" /> {post.repostedComment._count?.likes || 0}
               </div>
               {post.repostedComment.post && (
-                <div className="mt-2 rounded-lg border border-zinc-200 bg-white p-2">
+                <div className="mt-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-2">
                   <div className="flex items-center gap-2">
-                    {post.repostedComment.post.user.avatar ? (
-                      <img src={post.repostedComment.post.user.avatar} alt={post.repostedComment.post.user.username}
-                        className="size-4 rounded-full object-cover" />
-                    ) : <div className="size-4 rounded-full bg-zinc-200" />}
+                    <Avatar
+                      id={post.repostedComment.post.user.id}
+                      src={post.repostedComment.post.user.avatar}
+                      name={post.repostedComment.post.user.username}
+                      size={4}
+                    />
                     <span className="text-xs font-semibold text-zinc-900">{post.repostedComment.post.user.username}</span>
                     <span className="text-xs text-zinc-400">
                       {new Date(post.repostedComment.post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -239,22 +286,43 @@ export default function PostCard({
             </div>
           )}
 
+          {post.poll && onVote && (
+            <PollComponent
+              poll={post.poll}
+              currentUserId={currentUserId}
+              postId={post.id}
+              onVote={onVote}
+            />
+          )}
+
           <ViewTracker postId={post.id} viewedPosts={viewedPosts} setViewedPosts={setViewedPosts} />
 
           <div className="mt-4 flex items-center gap-6">
             <button onClick={() => onLike(post.id)}
-              className={`flex items-center gap-1.5 text-xs transition-all duration-200 ${likedPosts.has(post.id) ? "text-rose-500 scale-110" : "text-zinc-400 hover:text-rose-500 hover:scale-110"}`}>
+              className={`flex items-center gap-1.5 text-xs transition-all duration-200 ${likedPosts.has(post.id) ? "text-rose-500 scale-110" : "text-zinc-400 dark:text-zinc-500 hover:text-rose-500 hover:scale-110"}`}>
               <Heart className={`size-4 transition-all duration-200 ${likedPosts.has(post.id) ? "fill-current animate-like" : ""}`} />
               {post.likes.length}
             </button>
             <button onClick={() => onToggleComments(post.id)}
-              className="flex items-center gap-1.5 text-xs text-zinc-400 transition-all duration-200 hover:text-indigo-600 hover:scale-110">
+              className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 transition-all duration-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:scale-110">
               <MessageCircle className="size-4" /> {post._count?.comments || 0}
             </button>
             <button onClick={() => onRepost(post)}
-              className="flex items-center gap-1.5 text-xs text-zinc-400 transition-all duration-200 hover:text-green-600 hover:scale-110">
+              className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 transition-all duration-200 hover:text-green-600 dark:hover:text-green-400 hover:scale-110">
               <Repeat2 className="size-4" /> {post._count?.reposts || 0}
             </button>
+            {onBookmark && (
+              <button onClick={() => onBookmark(post.id)}
+                className={`flex items-center gap-1.5 text-xs transition-all duration-200 hover:scale-110 ${bookmarkedPosts?.has(post.id) ? "text-indigo-500 scale-110" : "text-zinc-400 dark:text-zinc-500 hover:text-indigo-500"}`}>
+                <Bookmark className={`size-4 transition-all duration-200 ${bookmarkedPosts?.has(post.id) ? "fill-current" : ""}`} />
+              </button>
+            )}
+            {onPin && currentUserId === post.user.id && (
+              <button onClick={() => onPin(post.id)}
+                className={`flex items-center gap-1.5 text-xs transition-all duration-200 hover:scale-110 ${pinnedPostId === post.id ? "text-amber-500 scale-110" : "text-zinc-400 dark:text-zinc-500 hover:text-amber-500"}`}>
+                <Pin className={`size-4 transition-all duration-200 ${pinnedPostId === post.id ? "fill-current" : ""}`} />
+              </button>
+            )}
           </div>
 
           <CommentSection

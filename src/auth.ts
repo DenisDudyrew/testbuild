@@ -34,20 +34,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user, trigger }) {
-      const id = (token as Record<string, unknown>).id as string;
-      if (trigger === 'update' && id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id },
-          select: { role: true, avatar: true },
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.picture = dbUser.avatar ?? undefined;
-        }
-      }
       if (user) {
         token.id = user.id;
-        // Получаем данные пользователя из БД
+        // Загружаем данные из БД только при первом входе
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: { role: true, avatar: true },
@@ -56,6 +45,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role = dbUser.role;
           token.picture = dbUser.avatar ?? undefined;
         }
+      } else if (trigger === 'update') {
+        // При update используем существующие данные из токена без лишнего запроса к БД
+        // Если нужны свежие данные — вызывается signOut/re-login
       }
       return token;
     },
