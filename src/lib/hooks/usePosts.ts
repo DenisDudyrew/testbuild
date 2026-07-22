@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import type { Post, Comment } from "@/types/post";
+import type { Post, Comment, CommentReply } from "@/types/post";
 
 export function usePosts() {
   const { data: session } = useSession();
@@ -25,6 +25,7 @@ export function usePosts() {
   useEffect(() => {
     const postId = searchParams.get("postId");
     if (postId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHighlightPostId(postId);
       setExpandedComments((prev) => new Set(prev).add(postId));
       if (!comments[postId]) {
@@ -96,6 +97,7 @@ export function usePosts() {
 
   useEffect(() => {
     if (session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadPosts(1);
     }
   }, [session, loadPosts]);
@@ -196,7 +198,7 @@ export function usePosts() {
                     replies: [...(comment.replies || []), data],
                   };
                 }
-                if (comment.replies?.some((r: any) => r.id === parentId)) {
+                if (comment.replies?.some((r: CommentReply) => r.id === parentId)) {
                   return {
                     ...comment,
                     replies: [...comment.replies, data],

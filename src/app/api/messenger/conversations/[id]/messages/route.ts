@@ -203,7 +203,7 @@ export async function DELETE(
     }
 
     const userId = session.user.id;
-    const { id: conversationId } = await params;
+    const { id: _conversationId } = await params;
     const { messageId } = await request.json();
 
     if (!messageId) {

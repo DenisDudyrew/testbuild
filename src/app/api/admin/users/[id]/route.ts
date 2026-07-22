@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { auth } from '@/auth';
 
 // PUT - обновить пользователя (только admin)
@@ -27,7 +28,7 @@ export async function PUT(
     const body = await request.json();
     const { username, role } = body;
 
-    const updates: Record<string, any> = {};
+    const updates: Prisma.UserUpdateInput = {};
 
     if (username !== undefined) {
       const existing = await prisma.user.findUnique({ where: { username } });

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Flame, Heart, MessageCircle, Repeat2, Wind, TrendingUp, Hash } from "lucide-react";
+import { Search, Flame, Heart, MessageCircle, Repeat2, TrendingUp, Hash } from "lucide-react";
 import Avatar from "@/components/Avatar";
 import Sidebar from "@/components/Sidebar";
 
@@ -25,6 +25,19 @@ interface PopularPost {
   _count: { likes: number; comments: number; reposts: number };
 }
 
+interface PostResult {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: { id: string; username: string; avatar: string | null };
+  _count?: { likes: number; comments: number; reposts: number };
+}
+
+interface HashtagResult {
+  name: string;
+  count: number;
+}
+
 interface ExploreData {
   popularUsers: (SearchUser & { _count: { posts: number } })[];
   popularPosts: PopularPost[];
@@ -35,57 +48,26 @@ export default function SearchPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
-  const [postResults, setPostResults] = useState<any[]>([]);
-  const [hashtagResults, setHashtagResults] = useState<any[]>([]);
+  const [postResults, setPostResults] = useState<PostResult[]>([]);
+  const [hashtagResults, setHashtagResults] = useState<HashtagResult[]>([]);
   const [exploreData, setExploreData] = useState<ExploreData | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingExplore, setIsLoadingExplore] = useState(true);
   const [searchMode, setSearchMode] = useState<'users' | 'posts' | 'hashtags'>('users');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (session) {
-      loadExplore();
-    }
-  }, [session]);
-
-  // Handle hashtag from URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const hashtag = params.get('hashtag');
-    if (hashtag) {
-      setQuery(`#${hashtag}`);
-      setSearchMode('posts');
-      searchPostsByHashtag(hashtag);
-    }
-    // Load trending hashtags
-    loadTrendingHashtags();
-  }, []);
-
-  useEffect(() => {
-    if (query.length === 0) {
-      setSearchResults([]);
-      setPostResults([]);
-      setHashtagResults([]);
-      setIsSearching(false);
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (searchMode === 'users') handleSearch(query);
-      else if (searchMode === 'posts') searchPosts(query);
-      else if (searchMode === 'hashtags') searchHashtags(query);
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [query, searchMode]);
-
-  const loadTrendingHashtags = async () => {
+  const loadExplore = async () => {
     try {
-      const res = await fetch('/api/hashtags/trending');
+      const res = await fetch('/api/explore');
       if (res.ok) {
         const data = await res.json();
-        setHashtagResults(data);
+        setExploreData(data);
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load explore data:', error);
+    } finally {
+      setIsLoadingExplore(false);
+    }
   };
 
   const searchPostsByHashtag = async (hashtag: string) => {
@@ -95,6 +77,16 @@ export default function SearchPage() {
         const data = await res.json();
         setPostResults(data.posts);
         setIsSearching(true);
+      }
+    } catch {}
+  };
+
+  const loadTrendingHashtags = async () => {
+    try {
+      const res = await fetch('/api/hashtags/trending');
+      if (res.ok) {
+        const data = await res.json();
+        setHashtagResults(data);
       }
     } catch {}
   };
@@ -115,24 +107,10 @@ export default function SearchPage() {
       const res = await fetch(`/api/hashtags/trending`);
       if (res.ok) {
         const data = await res.json();
-        setHashtagResults(data.filter((h: any) => h.name.includes(q.toLowerCase())));
+        setHashtagResults(data.filter((h: HashtagResult) => h.name.includes(q.toLowerCase())));
         setIsSearching(true);
       }
     } catch {}
-  };
-
-  const loadExplore = async () => {
-    try {
-      const res = await fetch('/api/explore');
-      if (res.ok) {
-        const data = await res.json();
-        setExploreData(data);
-      }
-    } catch (error) {
-      console.error('Failed to load explore data:', error);
-    } finally {
-      setIsLoadingExplore(false);
-    }
   };
 
   const handleSearch = async (q: string) => {
@@ -147,6 +125,44 @@ export default function SearchPage() {
       console.error('Search failed:', error);
     }
   };
+
+  useEffect(() => {
+    if (session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadExplore();
+    }
+  }, [session]);
+
+  // Handle hashtag from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hashtag = params.get('hashtag');
+    if (hashtag) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setQuery(`#${hashtag}`);
+      setSearchMode('posts');
+      searchPostsByHashtag(hashtag);
+    }
+    // Load trending hashtags
+    loadTrendingHashtags();
+  }, []);
+
+  useEffect(() => {
+    if (query.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSearchResults([]);
+      setPostResults([]);
+      setHashtagResults([]);
+      setIsSearching(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (searchMode === 'users') handleSearch(query);
+      else if (searchMode === 'posts') searchPosts(query);
+      else if (searchMode === 'hashtags') searchHashtags(query);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [query, searchMode]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -258,7 +274,7 @@ export default function SearchPage() {
           {/* Результаты поиска постов */}
           {isSearching && searchMode === 'posts' && postResults.length > 0 && (
             <div className="space-y-2">
-              {postResults.map((post: any) => (
+              {postResults.map((post: PostResult) => (
                 <button
                   key={post.id}
                   onClick={() => router.push(`/feed?postId=${post.id}`)}
@@ -285,7 +301,7 @@ export default function SearchPage() {
           {/* Результаты поиска хештегов */}
           {isSearching && searchMode === 'hashtags' && hashtagResults.length > 0 && (
             <div className="space-y-1">
-              {hashtagResults.map((h: any) => (
+              {hashtagResults.map((h: HashtagResult) => (
                 <button
                   key={h.name}
                   onClick={() => {

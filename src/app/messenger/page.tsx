@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Shield, MessageCircle, Lock, Sparkles } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import ConversationList from "@/components/messenger/ConversationList";
@@ -18,7 +17,6 @@ interface Conversation {
 
 export default function MessengerPage() {
   const { data: session } = useSession();
-  const router = useRouter();
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [showNewChat, setShowNewChat] = useState(false);
   const [showChatOnMobile, setShowChatOnMobile] = useState(false);

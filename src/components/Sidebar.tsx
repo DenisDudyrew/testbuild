@@ -6,6 +6,40 @@ import { Wind, Home, User, Shield, Search, LogOut, Bell, Newspaper, MessageCircl
 import { useRouter, usePathname } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { useTheme } from "./ThemeProvider";
+import type { LucideIcon } from "lucide-react";
+
+interface NavItemProps {
+  path: string;
+  icon: LucideIcon;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  activeColor?: string;
+  badge?: number;
+}
+
+function NavItem({ path: _path, icon: Icon, label, isActive, onClick, activeColor = "text-indigo-700 bg-indigo-50", badge }: NavItemProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+        isActive
+          ? activeColor + " dark:!text-indigo-300 dark:!bg-indigo-500/20"
+          : "text-zinc-700 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+      }`}
+    >
+      <div className="relative">
+        <Icon className="size-5" />
+        {badge !== undefined && badge > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </div>
+      <span className="inline">{label}</span>
+    </button>
+  );
+}
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
@@ -56,18 +90,6 @@ export default function Sidebar() {
   const [messengerUnreadCount, setMessengerUnreadCount] = useState(0);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  useEffect(() => {
-    if (session) {
-      checkAdmin();
-      loadUnreadCount();
-      loadMessengerUnreadCount();
-    }
-  }, [session]);
-
-  useEffect(() => {
-    setIsMobileOpen(false);
-  }, [pathname]);
-
   const checkAdmin = async () => {
     try {
       const res = await fetch("/api/users/me");
@@ -98,6 +120,22 @@ export default function Sidebar() {
     } catch {}
   };
 
+  useEffect(() => {
+    if (session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      checkAdmin();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadUnreadCount();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadMessengerUnreadCount();
+    }
+  }, [session]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMobileOpen(false);
+  }, [pathname]);
+
   // Периодический опрос непрочитанных сообщений
   useEffect(() => {
     if (!session) return;
@@ -114,27 +152,6 @@ export default function Sidebar() {
   }, [session]);
 
   const isActive = (path: string) => pathname === path;
-
-  const NavItem = ({ path, icon: Icon, label, activeColor = "text-indigo-700 bg-indigo-50", badge }: { path: string; icon: any; label: string; activeColor?: string; badge?: number }) => (
-    <button
-      onClick={() => router.push(path)}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-        isActive(path)
-          ? activeColor + " dark:!text-indigo-300 dark:!bg-indigo-500/20"
-          : "text-zinc-700 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-      }`}
-    >
-      <div className="relative">
-        <Icon className="size-5" />
-        {badge !== undefined && badge > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
-            {badge > 99 ? '99+' : badge}
-          </span>
-        )}
-      </div>
-      <span className="inline">{label}</span>
-    </button>
-  );
 
   return (
     <>
@@ -182,20 +199,20 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3">
-          <NavItem path="/feed" icon={Home} label="Лента" />
-          <NavItem path="/search" icon={Search} label="Поиск" />
-          <NavItem path="/notifications" icon={Bell} label="Уведомления" badge={unreadCount} />
+          <NavItem path="/feed" icon={Home} label="Лента" isActive={isActive('/feed')} onClick={() => router.push('/feed')} />
+          <NavItem path="/search" icon={Search} label="Поиск" isActive={isActive('/search')} onClick={() => router.push('/search')} />
+          <NavItem path="/notifications" icon={Bell} label="Уведомления" badge={unreadCount} isActive={isActive('/notifications')} onClick={() => router.push('/notifications')} />
           <div className="relative">
-            <NavItem path="/messenger" icon={MessageCircle} label="Сообщения" badge={messengerUnreadCount} />
+            <NavItem path="/messenger" icon={MessageCircle} label="Сообщения" badge={messengerUnreadCount} isActive={isActive('/messenger')} onClick={() => router.push('/messenger')} />
             {session && (
               <div className="absolute left-0.5 top-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" />
             )}
           </div>
-          <NavItem path="/bookmarks" icon={Bookmark} label="Закладки" />
-          <NavItem path={`/profile/${session?.user?.id}`} icon={User} label="Профиль" />
-          <NavItem path="/updates" icon={Newspaper} label="Обновления" />
+          <NavItem path="/bookmarks" icon={Bookmark} label="Закладки" isActive={isActive('/bookmarks')} onClick={() => router.push('/bookmarks')} />
+          <NavItem path={`/profile/${session?.user?.id}`} icon={User} label="Профиль" isActive={isActive(`/profile/${session?.user?.id}`)} onClick={() => router.push(`/profile/${session?.user?.id}`)} />
+          <NavItem path="/updates" icon={Newspaper} label="Обновления" isActive={isActive('/updates')} onClick={() => router.push('/updates')} />
           {isAdmin && (
-            <NavItem path="/admin" icon={Shield} label="Админ-панель" activeColor="text-amber-700 bg-amber-50 dark:!text-amber-400 dark:!bg-amber-500/20" />
+            <NavItem path="/admin" icon={Shield} label="Админ-панель" isActive={isActive('/admin')} onClick={() => router.push('/admin')} activeColor="text-amber-700 bg-amber-50 dark:!text-amber-400 dark:!bg-amber-500/20" />
           )}
         </nav>
 

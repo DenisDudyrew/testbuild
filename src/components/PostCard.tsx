@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Heart, MessageCircle, Repeat2, Edit2, X, Trash2, MessageSquareMore, Bookmark, Pin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -8,13 +8,13 @@ import ViewTracker from "@/components/ViewTracker";
 import CommentSection from "@/components/CommentSection";
 import { useToast } from "@/components/ToastProvider";
 import PollComponent from "@/components/PollComponent";
-import type { Post } from "@/types/post";
+import type { Post, Comment } from "@/types/post";
 
 interface PostCardProps {
   post: Post;
   currentUserId?: string;
   likedPosts: Set<string>;
-  comments: Record<string, any[]>;
+  comments: Record<string, Comment[]>;
   expandedComments: Set<string>;
   showAllComments: Set<string>;
   viewedPosts: Set<string>;
@@ -63,12 +63,12 @@ export default function PostCard({
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const { showAlert, showConfirm } = useToast();
 
-  const canEditPost = (p: Post) => {
+  const canEditPost = useCallback((p: Post) => {
     if (p.user.id !== currentUserId) return false;
     const tenMinutesInMs = 10 * 60 * 1000;
     const timeSinceCreation = Date.now() - new Date(p.createdAt).getTime();
     return timeSinceCreation < tenMinutesInMs;
-  };
+  }, [currentUserId]);
 
   const canDeletePost = (p: Post) => p.user.id === currentUserId;
 
@@ -330,7 +330,6 @@ export default function PostCard({
             comments={comments[post.id] || []}
             expanded={expandedComments.has(post.id)}
             showAll={showAllComments.has(post.id)}
-            onToggleExpand={() => onToggleComments(post.id)}
             onToggleShowAll={() => onToggleShowAll(post.id)}
             onAddComment={onAddComment}
             replyingTo={replyingTo}

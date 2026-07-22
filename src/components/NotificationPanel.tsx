@@ -32,7 +32,23 @@ export default function NotificationPanel({
   const [isLoading, setIsLoading] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  const loadNotifications = async () => {
+    try {
+      const res = await fetch('/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications);
+        onUnreadCountChange(data.unreadCount);
+      }
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadNotifications();
   }, []);
 
@@ -48,21 +64,6 @@ export default function NotificationPanel({
     }, 100);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
-
-  const loadNotifications = async () => {
-    try {
-      const res = await fetch('/api/notifications');
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications);
-        onUnreadCountChange(data.unreadCount);
-      }
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const markAllRead = async () => {
     try {

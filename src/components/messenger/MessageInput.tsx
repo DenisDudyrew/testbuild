@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, X, Image, FileText, File } from "lucide-react";
+import { Send, Paperclip, X, FileText } from "lucide-react";
 
 interface Props {
   onSend: (content: string, media?: { url: string; type: string; name: string }) => void;

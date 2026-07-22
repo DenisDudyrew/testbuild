@@ -10,15 +10,26 @@ interface TypingData {
   username: string;
 }
 
-interface MessageData {
-  conversationId: string;
-  message: any;
+interface MessagePayload {
+  id: string;
+  content: string;
+  createdAt: string;
+  senderId: string;
+  sender: { id: string; username: string; avatar: string | null };
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  mediaName?: string | null;
+  replyTo?: { id: string; content: string; senderId: string; sender: { id: string; username: string } } | null;
+  reactions?: Array<{ id: string; emoji: string; userId: string; user: { id: string; username: string } }>;
+  editedAt?: string | null;
+  pinnedBy?: { id: string } | null;
 }
 
-interface OnlineData {
-  userId: string;
-  online: boolean;
+interface MessageData {
+  conversationId: string;
+  message: MessagePayload;
 }
+
 
 export function getIO(): SocketIOServer | null {
   return io;

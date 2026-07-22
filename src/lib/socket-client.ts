@@ -3,10 +3,25 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import io from 'socket.io-client';
 
-type MessageHandler = (message: any) => void;
+interface MessageData {
+  id: string;
+  content: string;
+  createdAt: string;
+  senderId: string;
+  sender: { id: string; username: string; avatar: string | null };
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  mediaName?: string | null;
+  replyTo?: { id: string; content: string; senderId: string; sender: { id: string; username: string } } | null;
+  reactions?: Array<{ id: string; emoji: string; userId: string; user: { id: string; username: string } }>;
+  editedAt?: string | null;
+  pinnedBy?: { id: string } | null;
+}
+
+type MessageHandler = (message: MessageData) => void;
 type TypingHandler = (data: { conversationId: string; typing: { id: string; username: string }[] }) => void;
 type OnlineHandler = (data: { userId: string; online: boolean }) => void;
-type ConversationUpdateHandler = (data: { conversationId: string; lastMessage: any }) => void;
+type ConversationUpdateHandler = (data: { conversationId: string; lastMessage: MessageData }) => void;
 
 interface SocketHandlers {
   onMessageNew?: MessageHandler;
@@ -16,10 +31,13 @@ interface SocketHandlers {
 }
 
 export function useSocket(userId: string | undefined, handlers: SocketHandlers) {
-  const socketRef = useRef<any>(null);
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const handlersRef = useRef(handlers);
   const [connected, setConnected] = useState(false);
-  handlersRef.current = handlers;
+
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
 
   useEffect(() => {
     if (!userId) return;
@@ -42,7 +60,7 @@ export function useSocket(userId: string | undefined, handlers: SocketHandlers) 
       socket.emit('register', userId);
     });
 
-    socket.on('message:new', (message: any) => {
+    socket.on('message:new', (message: MessageData) => {
       handlersRef.current.onMessageNew?.(message);
     });
 
@@ -54,7 +72,7 @@ export function useSocket(userId: string | undefined, handlers: SocketHandlers) 
       handlersRef.current.onOnlineUpdate?.(data);
     });
 
-    socket.on('conversation:update', (data: { conversationId: string; lastMessage: any }) => {
+    socket.on('conversation:update', (data: { conversationId: string; lastMessage: MessageData }) => {
       handlersRef.current.onConversationUpdate?.(data);
     });
 
@@ -77,7 +95,7 @@ export function useSocket(userId: string | undefined, handlers: SocketHandlers) 
     socketRef.current?.emit('leave:conversation', conversationId);
   }, []);
 
-  const sendMessage = useCallback((conversationId: string, message: any) => {
+  const sendMessage = useCallback((conversationId: string, message: MessageData) => {
     socketRef.current?.emit('message:send', { conversationId, message });
   }, []);
 
@@ -104,6 +122,6 @@ export function useSocket(userId: string | undefined, handlers: SocketHandlers) 
   };
 }
 
-export function getSocket(): any {
+export function getSocket() {
   return null;
 }

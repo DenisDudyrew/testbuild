@@ -31,10 +31,7 @@ export default function NewChatModal({ onClose, onSelect }: Props) {
   }, []);
 
   useEffect(() => {
-    if (query.length < 2) {
-      setUsers([]);
-      return;
-    }
+    if (query.length < 2) return;
 
     const timer = setTimeout(async () => {
       setLoading(true);

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { X, Repeat2, MessageCircle, Heart } from "lucide-react";
-import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 
@@ -35,7 +34,6 @@ export default function RepostModal({ post, onClose, onReposted }: RepostModalPr
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast, showAlert } = useToast();
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

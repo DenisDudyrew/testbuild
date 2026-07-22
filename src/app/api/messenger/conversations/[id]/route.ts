@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
-import { decrypt } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/messenger/conversations/[id] - получить один чат по ID
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

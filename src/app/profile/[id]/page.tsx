@@ -76,8 +76,6 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followerCount, setFollowerCount] = useState(0);
   const [editForm, setEditForm] = useState({
     username: "",
     avatar: "",
@@ -93,12 +91,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const [isUploading, setIsUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const headerInputRef = useRef<HTMLInputElement>(null);
-  const { showAlert, showConfirm, showToast } = useToast();
-
-  useEffect(() => {
-    loadUser();
-    loadFollowStatus();
-  }, [resolvedParams.id]);
+  const { showAlert, showToast } = useToast();
 
   const loadUser = async () => {
     try {
@@ -124,29 +117,14 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     }
   };
 
-  const loadFollowStatus = async () => {
-    try {
-      const res = await fetch(`/api/users/${resolvedParams.id}/follow`);
-      if (res.ok) {
-        const data = await res.json();
-        setIsFollowing(data.isFollowing);
-        setFollowerCount(data.followerCount);
-      }
-    } catch {}
-  };
+  // removed: loadFollowStatus (unused)
 
-  const handleFollow = async () => {
-    try {
-      const res = await fetch(`/api/users/${resolvedParams.id}/follow`, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setIsFollowing(data.followed);
-        setFollowerCount(prev => data.followed ? prev + 1 : prev - 1);
-      }
-    } catch (error) {
-      console.error('Failed to toggle follow:', error);
-    }
-  };
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadUser();
+  }, [resolvedParams.id]);
+
+  // removed: handleFollow (unused)
 
   const uploadFile = async (file: File): Promise<string | null> => {
     const formData = new FormData();

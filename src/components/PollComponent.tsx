@@ -11,7 +11,7 @@ interface PollComponentProps {
   onVote: (pollId: string, optionId: string, postId: string) => void;
 }
 
-export default function PollComponent({ poll, currentUserId, postId, onVote }: PollComponentProps) {
+export default function PollComponent({ poll, postId, onVote }: PollComponentProps) {
   const [votedOptionId, setVotedOptionId] = useState<string | null>(poll.votedOptionId || null);
   const [voting, setVoting] = useState(false);
 

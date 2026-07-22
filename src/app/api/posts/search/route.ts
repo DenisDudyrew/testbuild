@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ posts: [] });
     }
 
-    const where: any = {};
+    const where: Prisma.PostWhereInput = {};
 
     if (hashtag) {
       where.hashtags = {

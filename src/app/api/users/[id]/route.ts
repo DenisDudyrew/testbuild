@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
-
 // GET - получить профиль пользователя
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const session = await auth();
-
     const user = await prisma.user.findUnique({
       where: { id },
       select: {

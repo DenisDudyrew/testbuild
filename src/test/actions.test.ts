@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mockPrisma, mockAuth, resetMocks, setAuthSession } from './helpers';
-
-// Мокаем revalidatePath чтобы не было ошибок
-const revalidatePath = () => {};
+import { mockPrisma, resetMocks, setAuthSession } from './helpers';
 
 describe('createPost (Server Action)', () => {
   beforeEach(() => {

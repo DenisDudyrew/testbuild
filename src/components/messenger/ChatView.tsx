@@ -78,7 +78,7 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
   const [mediaLoading, setMediaLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const lastPollRef = useRef(Date.now());
+  const lastPollRef = useRef(0);
   const isSendingRef = useRef(false);
   const isTypingRef = useRef(false);
 
@@ -140,7 +140,13 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
   }, [conversation.id, session, socket]);
 
   useEffect(() => {
+    lastPollRef.current = Date.now();
+  }, [conversation.id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setReplyTo(null);
     fetchMessages();
@@ -299,10 +305,10 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
     }
   };
 
-  const isOnline = (lastSeenAt?: string | null): boolean => {
+  const isOnline = useCallback((lastSeenAt?: string | null): boolean => {
     if (!lastSeenAt) return false;
     return Date.now() - new Date(lastSeenAt).getTime() < 120000;
-  };
+  }, []);
 
   const getChatName = (): string => {
     if (conversation.name) return conversation.name;

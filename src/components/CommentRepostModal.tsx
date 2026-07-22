@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { X, Repeat2, MessageCircle, Heart, MessageSquareMore } from "lucide-react";
-import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 
@@ -17,7 +16,7 @@ interface CommentRepostComment {
   };
   likes: Array<{ userId: string }>;
   _count?: { likes: number };
-  postId: string;
+  postId?: string;
   post?: {
     id: string;
     content: string;

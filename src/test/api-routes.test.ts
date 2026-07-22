@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mockPrisma, mockAuth, resetMocks, setAuthSession, createJsonRequest, createGetRequest } from './helpers';
+import { mockPrisma, resetMocks, setAuthSession, createJsonRequest, createGetRequest } from './helpers';
 
 // ==================== POSTS/LIKE ====================
 describe('POST /api/posts/[id]/like', () => {
@@ -119,7 +119,7 @@ describe('GET /api/users/[id]/follow', () => {
 
     mockPrisma.follow.count.mockResolvedValueOnce(10); // followers
     mockPrisma.follow.count.mockResolvedValueOnce(5);  // following
-    mockPrisma.follow.findUnique.mockResolvedValue({ id: 'f-1' } as any);
+    mockPrisma.follow.findUnique.mockResolvedValue({ id: 'f-1' } as never);
 
     const res = await GET(createGetRequest('http://localhost:3000/api/users/user-2/follow'), {
       params: Promise.resolve({ id: 'user-2' }),
@@ -816,7 +816,7 @@ describe('GET /api/hashtags/trending', () => {
   it('returns trending hashtags without auth', async () => {
     const { GET } = await import('@/app/api/hashtags/trending/route');
 
-    mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+    mockPrisma.$transaction.mockImplementation((fn: (prisma: typeof mockPrisma) => unknown) => fn(mockPrisma));
     // The route uses raw query, let's just test that it returns 200
     // We'll need to mock the raw query or the findMany
     mockPrisma.hashtag.findMany = mockPrisma.hashtag.findMany || vi.fn();

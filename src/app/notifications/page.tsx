@@ -31,12 +31,6 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (session) {
-      loadNotifications();
-    }
-  }, [session]);
-
   const loadNotifications = async () => {
     try {
       const res = await fetch('/api/notifications');
@@ -51,13 +45,6 @@ export default function NotificationsPage() {
     }
   };
 
-  // Отмечаем прочитанными при входе на страницу
-  useEffect(() => {
-    if (notifications.length > 0 && notifications.some(n => !n.read)) {
-      markAllRead();
-    }
-  }, [notifications]);
-
   const markAllRead = async () => {
     try {
       await fetch('/api/notifications/read', { method: 'PUT' });
@@ -66,6 +53,21 @@ export default function NotificationsPage() {
       console.error('Failed to mark notifications as read:', error);
     }
   };
+
+  useEffect(() => {
+    if (session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadNotifications();
+    }
+  }, [session]);
+
+  // Отмечаем прочитанными при входе на страницу
+  useEffect(() => {
+    if (notifications.length > 0 && notifications.some(n => !n.read)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      markAllRead();
+    }
+  }, [notifications]);
 
   const handleClick = (notification: Notification) => {
     if (notification.postId) {

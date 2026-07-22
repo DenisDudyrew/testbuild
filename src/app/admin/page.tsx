@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { Wind, Users, FileText, Trash2, Shield, Edit2, X, Check, Plus, Clock, Search } from "lucide-react";
+import { Wind, Users, FileText, Trash2, Edit2, X, Check, Plus, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
@@ -65,15 +65,6 @@ export default function AdminPage() {
   const [editRole, setEditRole] = useState("user");
   const { showConfirm, showToast } = useToast();
 
-  useEffect(() => {
-    if (status === 'loading') return;
-    if (!session?.user?.id) {
-      router.push('/');
-      return;
-    }
-    checkAdminAndLoad();
-  }, [session, status]);
-
   const checkAdminAndLoad = async () => {
 
     try {
@@ -122,6 +113,17 @@ export default function AdminPage() {
       console.error('Error loading admin data:', error);
     }
   };
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session?.user?.id) {
+      router.push('/');
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    checkAdminAndLoad();
+  }, [session, status]);
 
   const handleDeleteUser = async (userId: string) => {
     const confirmed = await showConfirm('Вы уверены, что хотите удалить этого пользователя? Все его посты и комментарии будут удалены.');

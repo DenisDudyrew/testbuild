@@ -47,15 +47,16 @@ export async function sendVerificationCode(email: string, code: string): Promise
       subject: 'Код подтверждения — ZEPHYR',
       html: buildEmailHtml(code),
     });
-  } catch (error: any) {
-    console.error('\n❌ Ошибка отправки email через SMTP:', error.message || error);
-    if (error.code === 'EAUTH') {
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    console.error('\n❌ Ошибка отправки email через SMTP:', err.message || error);
+    if (err.code === 'EAUTH') {
       throw new Error('Ошибка аутентификации SMTP: проверьте логин/пароль. Для Яндекса нужен пароль приложения, а не обычный пароль.');
     }
-    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
       throw new Error(`Не удалось подключиться к SMTP-серверу (${host}:${port}). Проверьте настройки.`);
     }
-    throw new Error(`Ошибка SMTP: ${error.message || error}`);
+    throw new Error(`Ошибка SMTP: ${err.message || error}`);
   }
 }
 

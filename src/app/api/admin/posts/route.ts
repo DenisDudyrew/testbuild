@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 
 // GET - получить все посты (только admin)
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
     const session = await auth();
     

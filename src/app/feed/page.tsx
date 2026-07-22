@@ -2,8 +2,6 @@
 
 import { useSession } from "next-auth/react";
 import { useState, Suspense, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Sparkles, Users } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import PostForm from "@/components/PostForm";
 import PostCard from "@/components/PostCard";
@@ -34,13 +32,12 @@ export default function FeedPage() {
 
 function FeedContent() {
   const { data: session } = useSession();
-  const router = useRouter();
-  const [feedTab, setFeedTab] = useState<FeedTab>('for-you');
+  const [feedTab] = useState<FeedTab>('for-you');
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
   const [feedHasMore, setFeedHasMore] = useState(true);
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedPage, setFeedPage] = useState(1);
-  const [feedTotal, setFeedTotal] = useState(0);
+  const [, setFeedTotal] = useState(0);
   const {
     comments,
     likedPosts,
@@ -83,6 +80,7 @@ function FeedContent() {
 
   useEffect(() => {
     if (session) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFeedPage(1);
       loadFeed(1);
     }

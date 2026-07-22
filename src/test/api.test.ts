@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mockPrisma, mockAuth, resetMocks, setAuthSession, createJsonRequest, createGetRequest } from './helpers';
+import { mockPrisma, resetMocks, setAuthSession, createJsonRequest, createGetRequest } from './helpers';
 
 // API login route
 describe('POST /api/login', () => {

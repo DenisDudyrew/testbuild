@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Bookmark, Wind } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import Avatar from "@/components/Avatar";
 import { Heart, MessageCircle } from "lucide-react";
@@ -25,10 +25,6 @@ export default function BookmarksPage() {
   const [bookmarks, setBookmarks] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (session) loadBookmarks();
-  }, [session]);
-
   const loadBookmarks = async () => {
     try {
       const res = await fetch('/api/bookmarks');
@@ -42,6 +38,11 @@ export default function BookmarksPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (session) // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadBookmarks();
+  }, [session]);
 
   const removeBookmark = async (postId: string) => {
     try {

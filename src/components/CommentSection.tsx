@@ -4,16 +4,14 @@ import { useState } from "react";
 import { X, Heart, Repeat2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
-import { useToast } from "@/components/ToastProvider";
 import CommentRepostModal from "@/components/CommentRepostModal";
-import type { Comment } from "@/types/post";
+import type { Comment, CommentReply } from "@/types/post";
 
 interface CommentSectionProps {
   postId: string;
   comments: Comment[];
   expanded: boolean;
   showAll: boolean;
-  onToggleExpand: () => void;
   onToggleShowAll: () => void;
   onAddComment: (postId: string, content: string, parentId?: string) => void;
   replyingTo: { commentId: string; username: string } | null;
@@ -26,7 +24,6 @@ export default function CommentSection({
   comments,
   expanded,
   showAll,
-  onToggleExpand,
   onToggleShowAll,
   onAddComment,
   replyingTo,
@@ -74,7 +71,6 @@ export default function CommentSection({
 
 function CommentItem({
   comment,
-  postId,
   onReply,
   isHighlighted,
 }: {
@@ -84,8 +80,7 @@ function CommentItem({
   isHighlighted?: boolean;
 }) {
   const router = useRouter();
-  const { showToast, showAlert } = useToast();
-  const [liked, setLiked] = useState<boolean>(
+  const [liked, setLiked] = useState(
     comment.likes?.some((l) => l.userId === "current") || false
   );
   const [likeCount, setLikeCount] = useState(comment._count?.likes || comment.likes?.length || 0);
@@ -161,8 +156,8 @@ function CommentItem({
 
         {comment.replies && comment.replies.length > 0 && (
           <div className="ml-4 mt-2 space-y-2">
-            {comment.replies.map((reply: any) => (
-              <ReplyItem key={reply.id} reply={reply} postId={postId} onReply={onReply} />
+            {comment.replies.map((reply: CommentReply) => (
+              <ReplyItem key={reply.id} reply={reply} onReply={onReply} />
             ))}
           </div>
         )}
@@ -184,20 +179,17 @@ function CommentItem({
 
 function ReplyItem({
   reply,
-  postId,
   onReply,
 }: {
-  reply: any;
-  postId: string;
+  reply: CommentReply;
   onReply: (id: string, username: string) => void;
 }) {
   const router = useRouter();
-  const { showToast, showAlert } = useToast();
   const [liked, setLiked] = useState(
-    reply.likes?.some((l: any) => l.userId === "current") || false
+    reply.likes?.some((l: { userId: string }) => l.userId === "current") || false
   );
   const [likeCount, setLikeCount] = useState(reply._count?.likes || reply.likes?.length || 0);
-  const [repostComment, setRepostComment] = useState<any | null>(null);
+  const [repostComment, setRepostComment] = useState<CommentReply | null>(null);
 
   const handleLike = async () => {
     try {

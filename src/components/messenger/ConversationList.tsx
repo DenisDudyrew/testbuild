@@ -48,14 +48,8 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
   const [messageSearching, setMessageSearching] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  // removed: isMobile state (unused)
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -72,6 +66,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchConversations();
     // Poll every 10 seconds
     const interval = setInterval(fetchConversations, 10000);
@@ -85,11 +80,11 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
     return () => window.removeEventListener('messenger:chatOpened', handler);
   }, [fetchConversations]);
 
-  const isOnline = (lastSeenAt?: string | null): boolean => {
+  const isOnline = useCallback((lastSeenAt?: string | null): boolean => {
     if (!lastSeenAt) return false;
     const diff = Date.now() - new Date(lastSeenAt).getTime();
     return diff < 120000;
-  };
+  }, []);
 
   const getConversationName = (conv: Conversation): string => {
     if (conv.name) return conv.name;

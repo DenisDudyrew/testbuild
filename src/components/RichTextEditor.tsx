@@ -47,18 +47,6 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     }
   }, [exec]);
 
-  const ToolbarButton = ({ onClick, children, title }: { onClick: () => void; children: React.ReactNode; title: string }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      {children}
-    </button>
-  );
-
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
       {/* Toolbar */}
@@ -110,5 +98,19 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         style={{ minHeight, maxHeight, direction: "ltr", textAlign: "left", writingMode: "horizontal-tb" }}
       />
     </div>
+  );
+}
+
+function ToolbarButton({ onClick, children, title }: { onClick: () => void; children: React.ReactNode; title: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      {children}
+    </button>
   );
 }
