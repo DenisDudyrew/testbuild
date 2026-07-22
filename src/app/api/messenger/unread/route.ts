@@ -12,7 +12,7 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Получаем все чаты пользователя
+    // Получаем все чаты пользователя с lastReadAt
     const conversations = await prisma.conversation.findMany({
       where: {
         participants: {
@@ -28,20 +28,22 @@ export async function GET() {
       },
     });
 
-    // Считаем непрочитанные сообщения по каждому чату
-    let totalUnread = 0;
-    for (const conv of conversations) {
-      const lastReadAt = conv.participants[0]?.lastReadAt || new Date(0);
-      const count = await prisma.message.count({
-        where: {
-          conversationId: conv.id,
-          senderId: { not: userId },
-          createdAt: { gt: lastReadAt },
-          deletedAt: null,
-        },
-      });
-      totalUnread += count;
-    }
+    // Считаем непрочитанные параллельно (устраняем N+1)
+    const unreadCounts = await Promise.all(
+      conversations.map(async (conv) => {
+        const lastReadAt = conv.participants[0]?.lastReadAt || new Date(0);
+        return prisma.message.count({
+          where: {
+            conversationId: conv.id,
+            senderId: { not: userId },
+            createdAt: { gt: lastReadAt },
+            deletedAt: null,
+          },
+        });
+      })
+    );
+
+    const totalUnread = unreadCounts.reduce((sum, c) => sum + c, 0);
 
     return NextResponse.json({ unreadCount: totalUnread });
   } catch (error) {

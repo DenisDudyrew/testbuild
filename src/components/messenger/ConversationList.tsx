@@ -73,12 +73,6 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
-  // Слушаем событие открытия чата — обновляем список
-  useEffect(() => {
-    const handler = () => fetchConversations();
-    window.addEventListener('messenger:chatOpened', handler);
-    return () => window.removeEventListener('messenger:chatOpened', handler);
-  }, [fetchConversations]);
 
   const isOnline = useCallback((lastSeenAt?: string | null): boolean => {
     if (!lastSeenAt) return false;

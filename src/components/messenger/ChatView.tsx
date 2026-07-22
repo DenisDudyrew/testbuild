@@ -153,8 +153,6 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
 
     socket.joinConversation(conversation.id);
 
-    window.dispatchEvent(new CustomEvent('messenger:chatOpened', { detail: { conversationId: conversation.id } }));
-
     // Fallback polling (если Socket.IO не работает)
     const interval = setInterval(() => {
       if (socket.connected) return;
@@ -186,7 +184,6 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emoji }),
       });
-      fetchMessages();
     } catch (err) {
       console.error("Failed to toggle reaction:", err);
     }
@@ -194,14 +191,11 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
 
   const handleEdit = async (messageId: string, content: string) => {
     try {
-      const res = await fetch(`/api/messenger/messages/${messageId}`, {
+      await fetch(`/api/messenger/messages/${messageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
-      if (res.ok) {
-        fetchMessages();
-      }
     } catch (err) {
       console.error("Failed to edit message:", err);
     }
@@ -250,8 +244,6 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
         const data = await res.json();
         // Отправляем через Socket.IO для real-time
         socket.sendMessage(conversation.id, data);
-        // Синхронизируемся с сервером в фоне
-        fetchMessages();
       } else {
         // Ошибка — убираем локальное сообщение
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
@@ -271,7 +263,6 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messageId }),
       });
-      fetchMessages();
     } catch (err) {
       console.error("Failed to toggle pin:", err);
     }
@@ -284,7 +275,6 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messageId }),
       });
-      fetchMessages();
     } catch (err) {
       console.error("Failed to delete message:", err);
     }

@@ -143,13 +143,6 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, [session]);
 
-  // Слушаем событие открытия чата — обновляем счётчик
-  useEffect(() => {
-    if (!session) return;
-    const handler = () => loadMessengerUnreadCount();
-    window.addEventListener('messenger:chatOpened', handler);
-    return () => window.removeEventListener('messenger:chatOpened', handler);
-  }, [session]);
 
   const isActive = (path: string) => pathname === path;
 
