@@ -21,10 +21,6 @@ export default function UpdatesPage() {
       .then((res) => res.json())
       .then((data) => {
         setNotes(data);
-        // раскрываем последнюю по умолчанию
-        if (data.length > 0) {
-          setExpanded(new Set([data[0].id]));
-        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));

@@ -159,11 +159,11 @@ export default function PostCard({
           )}
 
           {post.mediaUrl && (
-            <div className="mt-3 overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg">
+            <div className="mt-3 overflow-hidden rounded-xl bg-black/5 transition-all duration-300 hover:shadow-lg">
               {post.mediaType === "image" ? (
-                <img src={post.mediaUrl} alt="Post media" className="w-full transition-all duration-500 hover:scale-105" />
+                <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[80vh] object-contain transition-all duration-500 hover:scale-105" />
               ) : post.mediaType === "video" || post.mediaType === "circle" ? (
-                <video src={post.mediaUrl} controls className="w-full" />
+                <video src={post.mediaUrl} controls className="w-full max-h-[80vh] object-contain" />
               ) : null}
             </div>
           )}
@@ -228,9 +228,9 @@ export default function PostCard({
                   {post.repostedComment.post.mediaUrl && (
                     <div className="mt-1 overflow-hidden rounded-lg">
                       {post.repostedComment.post.mediaType === 'image' ? (
-                        <img src={post.repostedComment.post.mediaUrl} alt="Media" className="w-full max-h-32 object-cover" />
+                        <img src={post.repostedComment.post.mediaUrl} alt="Media" className="w-full max-h-32 object-contain" />
                       ) : (
-                        <video src={post.repostedComment.post.mediaUrl} controls className="w-full max-h-32" />
+                        <video src={post.repostedComment.post.mediaUrl} controls className="w-full max-h-32 object-contain" />
                       )}
                     </div>
                   )}

@@ -119,9 +119,9 @@ export default function RepostModal({ post, onClose, onReposted }: RepostModalPr
             {post.mediaUrl && (
               <div className="mt-2 overflow-hidden rounded-lg">
                 {post.mediaType === "image" ? (
-                  <img src={post.mediaUrl} alt="Media" className="w-full max-h-48 object-cover" />
+                  <img src={post.mediaUrl} alt="Media" className="w-full max-h-48 object-contain" />
                 ) : (
-                  <video src={post.mediaUrl} controls className="w-full max-h-48" />
+                  <video src={post.mediaUrl} controls className="w-full max-h-48 object-contain" />
                 )}
               </div>
             )}

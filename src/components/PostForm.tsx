@@ -109,14 +109,14 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
       />
 
       {mediaPreview && (
-        <div className="relative mt-3 overflow-hidden rounded-xl">
+        <div className="relative mt-3 overflow-hidden rounded-xl bg-black/5">
           {mediaFile?.type.startsWith("video/") ? (
-            <video src={mediaPreview} className="w-full max-h-64 object-cover" />
+            <video src={mediaPreview} className="w-full max-h-64 object-contain" />
           ) : (
             <img
               src={mediaPreview}
               alt="Preview"
-              className="w-full max-h-64 object-cover"
+              className="w-full max-h-64 object-contain"
             />
           )}
           <button

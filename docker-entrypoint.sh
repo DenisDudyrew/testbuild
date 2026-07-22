@@ -10,3 +10,6 @@ prisma db seed
 
 echo "Starting server..."
 exec node server.js
+
+
+

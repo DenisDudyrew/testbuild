@@ -516,11 +516,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     <p className="mt-1.5 text-sm text-zinc-700">{post.content}</p>
                     
                     {post.mediaUrl && (
-                      <div className="mt-3 overflow-hidden rounded-xl">
+                      <div className="mt-3 overflow-hidden rounded-xl bg-black/5">
                         {post.mediaType === 'image' ? (
-                          <img src={post.mediaUrl} alt="Post media" className="w-full" />
+                          <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[80vh] object-contain" />
                         ) : post.mediaType === 'video' || post.mediaType === 'circle' ? (
-                          <video src={post.mediaUrl} controls className="w-full" />
+                          <video src={post.mediaUrl} controls className="w-full max-h-[80vh] object-contain" />
                         ) : null}
                       </div>
                     )}
@@ -549,9 +549,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                         {post.repostOf.mediaUrl && (
                           <div className="mt-2 overflow-hidden rounded-lg">
                             {post.repostOf.mediaType === 'image' ? (
-                              <img src={post.repostOf.mediaUrl} alt="Media" className="w-full max-h-48 object-cover" />
+                              <img src={post.repostOf.mediaUrl} alt="Media" className="w-full max-h-48 object-contain" />
                             ) : (
-                              <video src={post.repostOf.mediaUrl} controls className="w-full max-h-48" />
+                              <video src={post.repostOf.mediaUrl} controls className="w-full max-h-48 object-contain" />
                             )}
                           </div>
                         )}
@@ -593,9 +593,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             {post.repostedComment.post.mediaUrl && (
                               <div className="mt-1 overflow-hidden rounded-lg">
                                 {post.repostedComment.post.mediaType === 'image' ? (
-                                  <img src={post.repostedComment.post.mediaUrl} alt="Media" className="w-full max-h-32 object-cover" />
+                                  <img src={post.repostedComment.post.mediaUrl} alt="Media" className="w-full max-h-32 object-contain" />
                                 ) : (
-                                  <video src={post.repostedComment.post.mediaUrl} controls className="w-full max-h-32" />
+                                  <video src={post.repostedComment.post.mediaUrl} controls className="w-full max-h-32 object-contain" />
                                 )}
                               </div>
                             )}

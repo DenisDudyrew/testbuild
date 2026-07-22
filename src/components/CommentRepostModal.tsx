@@ -150,9 +150,9 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
               {comment.post.mediaUrl && (
                 <div className="mt-2 overflow-hidden rounded-lg">
                   {comment.post.mediaType === "image" ? (
-                    <img src={comment.post.mediaUrl} alt="Media" className="w-full max-h-48 object-cover" />
+                    <img src={comment.post.mediaUrl} alt="Media" className="w-full max-h-48 object-contain" />
                   ) : (
-                    <video src={comment.post.mediaUrl} controls className="w-full max-h-48" />
+                    <video src={comment.post.mediaUrl} controls className="w-full max-h-48 object-contain" />
                   )}
                 </div>
               )}
