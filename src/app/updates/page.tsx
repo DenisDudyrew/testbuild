@@ -42,14 +42,14 @@ export default function UpdatesPage() {
   return (
     <div className="min-h-screen bg-zinc-50">
       <Sidebar />
-      <div className="pl-60">
-        <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-100">
+      <div className="pl-60 max-md:pl-0">
+        <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6 animate-fadeIn">
+        <div className="mb-6 flex items-center gap-3 pl-12 sm:pl-0">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-100 animate-bounceIn">
             <Wind className="size-5 text-indigo-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">Обновления</h1>
+            <h1 className="text-xl font-bold text-zinc-900 animate-slideIn">Обновления</h1>
             <p className="text-sm text-zinc-500">История изменений платформы</p>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function UpdatesPage() {
             <div className="size-8 animate-spin rounded-full border-3 border-zinc-200 border-t-indigo-600" />
           </div>
         ) : notes.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white py-20 text-center">
+          <div className="rounded-2xl border border-zinc-200 bg-white py-20 text-center animate-fadeIn">
             <Wind className="mx-auto size-10 text-zinc-300" />
             <p className="mt-3 text-sm text-zinc-500">Пока нет ни одного обновления</p>
           </div>

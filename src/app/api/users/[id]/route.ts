@@ -64,6 +64,27 @@ export async function GET(
                 },
               },
             },
+            repostedComment: {
+              select: {
+                id: true,
+                content: true,
+                createdAt: true,
+                postId: true,
+                user: { select: { id: true, username: true, avatar: true } },
+                likes: { select: { userId: true } },
+                _count: { select: { likes: true } },
+                post: {
+                  select: {
+                    id: true,
+                    content: true,
+                    mediaUrl: true,
+                    mediaType: true,
+                    createdAt: true,
+                    user: { select: { id: true, username: true, avatar: true } },
+                  },
+                },
+              },
+            },
           },
           orderBy: {
             createdAt: 'desc',

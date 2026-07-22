@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Repeat2, Bell, ArrowLeft } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Bell } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 
 interface Notification {
@@ -133,17 +133,11 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-zinc-50">
       <Sidebar />
 
-      <div className="pl-60">
-        <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6">
+      <div className="pl-60 max-md:pl-0">
+        <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6 animate-fadeIn">
         {/* Заголовок */}
-        <div className="mb-6 flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100"
-          >
-            <ArrowLeft className="size-5" />
-          </button>
-          <h1 className="text-xl font-bold text-zinc-900">Уведомления</h1>
+        <div className="mb-6 flex items-center gap-4 pl-12 sm:pl-0">
+          <h1 className="text-xl font-bold text-zinc-900 animate-slideIn">Уведомления</h1>
           {notifications.some(n => !n.read) && (
             <button
               onClick={markAllRead}
@@ -160,7 +154,7 @@ export default function NotificationsPage() {
             <div className="size-8 animate-spin rounded-full border-3 border-zinc-200 border-t-indigo-600" />
           </div>
         ) : notifications.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500 animate-fadeIn">
             <Bell className="mx-auto mb-3 size-10 text-zinc-300" />
             <p className="text-sm">Нет уведомлений</p>
           </div>

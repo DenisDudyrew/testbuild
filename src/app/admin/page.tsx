@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { Wind, Users, FileText, Trash2, Shield, Edit2, X, Check, Plus, Clock } from "lucide-react";
+import { Wind, Users, FileText, Trash2, Shield, Edit2, X, Check, Plus, Clock, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import Sidebar from "@/components/Sidebar";
@@ -59,6 +59,9 @@ export default function AdminPage() {
   const [editorTitle, setEditorTitle] = useState("");
   const [editorContent, setEditorContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUsername, setEditUsername] = useState("");
+  const [editRole, setEditRole] = useState("user");
   const { showConfirm, showToast } = useToast();
 
   useEffect(() => {
@@ -171,7 +174,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-zinc-50">
       <Sidebar />
 
-      <main className="ml-60 mx-auto px-4 py-6" style={{ maxWidth: "calc(56rem + 60px)" }}>
+      <main className="ml-60 max-md:ml-0 mx-auto px-4 py-6" style={{ maxWidth: "calc(56rem + 60px)" }}>
         {/* Табы */}
         <div className="mb-6 flex gap-2">
           <button
@@ -210,8 +213,11 @@ export default function AdminPage() {
         </div>
 
         {/* Таблица пользователей */}
+        {/* Заголовок страницы */}
+        <h1 className="mb-6 text-xl font-bold text-zinc-900 animate-slideIn pl-12 sm:pl-0">Админ-панель</h1>
+
         {activeTab === 'users' && (
-          <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+          <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden animate-fadeIn">
             <table className="w-full">
               <thead className="bg-zinc-50">
                 <tr>
@@ -268,13 +274,77 @@ export default function AdminPage() {
                       {new Date(user.createdAt).toLocaleDateString('ru-RU')}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="size-3" />
-                        Удалить
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {editingUserId === user.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editUsername}
+                              onChange={(e) => setEditUsername(e.target.value)}
+                              className="w-24 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs outline-none focus:border-indigo-500"
+                            />
+                            <select
+                              value={editRole}
+                              onChange={(e) => setEditRole(e.target.value)}
+                              className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs outline-none focus:border-indigo-500"
+                            >
+                              <option value="user">user</option>
+                              <option value="admin">admin</option>
+                            </select>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/admin/users/${user.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ username: editUsername, role: editRole }),
+                                  });
+                                  if (res.ok) {
+                                    showToast('Пользователь обновлён', 'success');
+                                    await loadData();
+                                    setEditingUserId(null);
+                                  } else {
+                                    const err = await res.json();
+                                    showToast(err.error || 'Ошибка', 'error');
+                                  }
+                                } catch {
+                                  showToast('Ошибка сохранения', 'error');
+                                }
+                              }}
+                              className="rounded bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700"
+                            >
+                              <Check className="size-3" />
+                            </button>
+                            <button
+                              onClick={() => setEditingUserId(null)}
+                              className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingUserId(user.id);
+                                setEditUsername(user.username);
+                                setEditRole(user.role);
+                              }}
+                              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50"
+                            >
+                              <Edit2 className="size-3" />
+                              Редактировать
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="size-3" />
+                              Удалить
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -285,7 +355,7 @@ export default function AdminPage() {
 
         {/* Таблица постов */}
         {activeTab === 'posts' && (
-          <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+          <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden animate-fadeIn">
             <table className="w-full">
               <thead className="bg-zinc-50">
                 <tr>
@@ -401,7 +471,7 @@ export default function AdminPage() {
 
         {/* Release Notes */}
         {activeTab === 'release-notes' && (
-          <div>
+          <div className="animate-fadeIn">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-zinc-900">Обновления (Release Notes)</h2>
               <button

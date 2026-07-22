@@ -24,6 +24,7 @@ model User {
   posts     Post[]
   likes     Like[]
   comments  Comment[]
+  commentLikes CommentLike[]
   notifications          Notification[] @relation("UserNotifications")
   actedNotifications     Notification[] @relation("ActorNotifications")
 }
@@ -43,6 +44,8 @@ model Post {
   repostOfId String?  @map("repost_of_id")
   repostOf   Post?    @relation("Reposts", fields: [repostOfId], references: [id], onDelete: SetNull)
   reposts    Post[]   @relation("Reposts")
+  repostedCommentId String?  @map("reposted_comment_id")
+  repostedComment   Comment? @relation("CommentReposts", fields: [repostedCommentId], references: [id], onDelete: SetNull)
   notifications          Notification[] @relation("PostNotifications")
 }
 
@@ -69,7 +72,21 @@ model Comment {
   replies   Comment[] @relation("CommentReplies")
   content   String
   createdAt DateTime @default(now())
+  likes     CommentLike[]
+  repostedInPosts Post[] @relation("CommentReposts")
   notifications          Notification[] @relation("CommentNotifications")
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, commentId])
+  @@map("comment_likes")
 }
 
 model Notification {

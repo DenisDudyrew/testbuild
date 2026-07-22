@@ -53,6 +53,22 @@ export async function GET(
             },
           },
         },
+        repostedComment: {
+          include: {
+            user: { select: { id: true, username: true, avatar: true } },
+            _count: { select: { likes: true } },
+            post: {
+              select: {
+                id: true,
+                content: true,
+                mediaUrl: true,
+                mediaType: true,
+                createdAt: true,
+                user: { select: { id: true, username: true, avatar: true } },
+              },
+            },
+          },
+        },
         _count: {
           select: {
             likes: true,

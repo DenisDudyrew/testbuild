@@ -3,10 +3,11 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { use } from "react";
-import { Wind, Calendar, Edit, Trash2, Camera, Upload, Repeat2, Heart, MessageCircle } from "lucide-react";
+import { Wind, Calendar, Edit, Trash2, Camera, Upload, Repeat2, Heart, MessageCircle, MessageSquareMore } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import Sidebar from "@/components/Sidebar";
+import PostForm from "@/components/PostForm";
 
 interface User {
   id: string;
@@ -41,6 +42,23 @@ interface User {
         comments: number;
         reposts: number;
       };
+    } | null;
+    repostedComment?: {
+      id: string;
+      content: string;
+      createdAt: string;
+      postId: string;
+      user: { id: string; username: string; avatar: string | null };
+      likes: Array<{ userId: string }>;
+      _count?: { likes: number };
+      post?: {
+        id: string;
+        content: string;
+        mediaUrl: string | null;
+        mediaType: string | null;
+        createdAt: string;
+        user: { id: string; username: string; avatar: string | null };
+      } | null;
     } | null;
   }>;
   _count: {
@@ -207,15 +225,15 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-        <div className="text-zinc-500">Загрузка...</div>
+        <div className="text-zinc-500 animate-pulse">Загрузка...</div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-        <div className="text-zinc-500">Пользователь не найден</div>
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 animate-fadeIn">
+        <div className="text-zinc-500">Пользователь ��е найден</div>
       </div>
     );
   }
@@ -226,19 +244,19 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     <div className="min-h-screen bg-zinc-50">
       <Sidebar />
 
-      <div className="pl-60">
-        <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6">
+      <div className="pl-60 max-md:pl-0">
+        <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6 animate-fadeIn">
         {/* Шапка профиля */}
-        <div className="mb-6">
-          <div className="relative h-48 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600">
+        <div className="mb-6 animate-slideIn">
+          <div className="relative h-36 md:h-48 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600">
             {user.header && (
               <img src={user.header} alt="Header" className="h-full w-full object-cover" />
             )}
           </div>
           
-          <div className="relative -mt-16 px-4">
-            <div className="flex items-end gap-4">
-              <div className="size-32 rounded-full border-4 border-white bg-zinc-200 overflow-hidden">
+          <div className="relative -mt-16 px-4 text-center md:text-left">
+              <div className="flex flex-col md:flex-row items-center md:items-end gap-4">
+              <div className="size-24 md:size-32 rounded-full border-4 border-white bg-zinc-200 overflow-hidden shadow-lg ring-2 ring-indigo-300">
                 {user.avatar ? (
                   <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
                 ) : (
@@ -248,8 +266,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 )}
               </div>
               
-              <div className="mb-2 flex-1">
-                <h1 className="text-2xl font-bold text-zinc-900">{user.username}</h1>
+              <div className="mb-2 flex-1 text-center md:text-left">
+                <h1 className="text-xl md:text-2xl font-bold text-zinc-900">{user.username}</h1>
                 <div className="flex items-center gap-2 text-sm text-zinc-500">
                   <Calendar className="size-4" />
                   {new Date(user.createdAt).toLocaleDateString('ru-RU')}
@@ -257,7 +275,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               </div>
 
               {isOwnProfile && (
-                <div className="mb-2 flex gap-2">
+                <div className="mb-2 flex gap-2 justify-center md:justify-start">
                   <button
                     onClick={() => setIsEditing(!isEditing)}
                     className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
@@ -281,7 +299,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             )}
 
             {/* Статистика */}
-            <div className="mt-4 flex gap-6">
+            <div className="mt-4 flex justify-center md:justify-start gap-6">
               <div className="text-center">
                 <div className="text-lg font-semibold text-zinc-900">{user._count.posts}</div>
                 <div className="text-xs text-zinc-500">Постов</div>
@@ -314,8 +332,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500">Аватар</label>
-                <div className="flex items-center gap-3">
-                  <div className="size-16 shrink-0 rounded-full bg-zinc-100 overflow-hidden border-2 border-zinc-200">
+                <div className="flex items-center flex-wrap gap-3">
+                  <div className="size-14 md:size-16 shrink-0 rounded-full bg-zinc-100 overflow-hidden border-2 border-zinc-200 aspect-square">
                     {avatarPreview ? (
                       <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
                     ) : user.avatar ? (
@@ -422,8 +440,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
 
         {/* Модальное окно удаления */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fadeIn">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg animate-scaleIn">
               <h3 className="mb-4 text-lg font-semibold text-zinc-900">Удалить аккаунт?</h3>
               <p className="mb-4 text-sm text-zinc-600">
                 Это действие необратимо. Все ваши посты, лайки и комментарии будут удалены.
@@ -461,16 +479,21 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           </div>
         )}
 
+        {/* Форма создания поста (только свой профиль) */}
+        {isOwnProfile && (
+          <PostForm onPostCreated={loadUser} />
+        )}
+
         {/* Посты пользователя */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-zinc-900">Посты</h2>
+        <div className="space-y-4 animate-fadeIn">
+          <h2 className="text-lg font-semibold text-zinc-900 animate-slideIn pl-12 sm:pl-0">Посты</h2>
           {user.posts.length === 0 ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center text-zinc-500 animate-fadeIn">
               Пока нет постов
             </div>
           ) : (
-            user.posts.map((post) => (
-              <article key={post.id} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            user.posts.map((post, idx) => (
+              <article key={post.id} className={`rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm animate-slideUp animate-stagger-${Math.min(idx + 1, 8)}`}>
                 <div className="flex items-start gap-3">
                   <div className="size-10 shrink-0 rounded-full bg-zinc-200 overflow-hidden">
                     {user.avatar ? (
@@ -529,6 +552,52 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                               <img src={post.repostOf.mediaUrl} alt="Media" className="w-full max-h-48 object-cover" />
                             ) : (
                               <video src={post.repostOf.mediaUrl} controls className="w-full max-h-48" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {post.repostedComment && (
+                      <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
+                        <div className="flex items-center gap-2">
+                          <MessageSquareMore className="size-3 text-indigo-400" />
+                          <span className="text-xs text-indigo-500">Репост комментария</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          {post.repostedComment.user.avatar ? (
+                            <img src={post.repostedComment.user.avatar} alt={post.repostedComment.user.username}
+                              className="size-5 rounded-full object-cover ring-1 ring-indigo-200" />
+                          ) : <div className="size-5 rounded-full bg-indigo-200" />}
+                          <span className="text-xs font-semibold text-zinc-900">
+                            {post.repostedComment.user.username}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-zinc-700">{post.repostedComment.content}</p>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
+                          <Heart className="size-3" /> {post.repostedComment._count?.likes || 0}
+                        </div>
+                        {post.repostedComment.post && (
+                          <div className="mt-2 rounded-lg border border-zinc-200 bg-white p-2">
+                            <div className="flex items-center gap-2">
+                              {post.repostedComment.post.user.avatar ? (
+                                <img src={post.repostedComment.post.user.avatar} alt={post.repostedComment.post.user.username}
+                                  className="size-4 rounded-full object-cover" />
+                              ) : <div className="size-4 rounded-full bg-zinc-200" />}
+                              <span className="text-xs font-semibold text-zinc-900">{post.repostedComment.post.user.username}</span>
+                              <span className="text-xs text-zinc-400">
+                                {new Date(post.repostedComment.post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-zinc-600">{post.repostedComment.post.content}</p>
+                            {post.repostedComment.post.mediaUrl && (
+                              <div className="mt-1 overflow-hidden rounded-lg">
+                                {post.repostedComment.post.mediaType === 'image' ? (
+                                  <img src={post.repostedComment.post.mediaUrl} alt="Media" className="w-full max-h-32 object-cover" />
+                                ) : (
+                                  <video src={post.repostedComment.post.mediaUrl} controls className="w-full max-h-32" />
+                                )}
+                              </div>
                             )}
                           </div>
                         )}

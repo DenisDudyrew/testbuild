@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { checkRateLimit, getRateLimitKey } from '@/lib/rate-limit';
 
 // POST - toggle лайк
 export async function POST(
@@ -10,50 +11,37 @@ export async function POST(
   try {
     const { id } = await params;
     const session = await auth();
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const post = await prisma.post.findUnique({
-      where: { id },
-    });
+    // Rate limiting
+    const rlKey = getRateLimitKey(request, 'like');
+    const rl = await checkRateLimit(rlKey);
+    if (!rl.success) {
+      return NextResponse.json({ error: 'Слишком много запросов' }, { status: 429 });
+    }
 
+    const post = await prisma.post.findUnique({ where: { id } });
     if (!post) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    // Проверяем, есть ли уже лайк
     const existingLike = await prisma.like.findUnique({
-      where: {
-        userId_postId: {
-          userId: session.user.id,
-          postId: id,
-        },
-      },
+      where: { userId_postId: { userId: session.user.id, postId: id } },
     });
 
     if (existingLike) {
-      // Удаляем лайк
       await prisma.like.delete({
-        where: {
-          userId_postId: {
-            userId: session.user.id,
-            postId: id,
-          },
-        },
+        where: { id: existingLike.id },
       });
       return NextResponse.json({ liked: false });
     } else {
-      // Добавляем лайк
       const like = await prisma.like.create({
-        data: {
-          userId: session.user.id,
-          postId: id,
-        },
+        data: { userId: session.user.id, postId: id },
       });
 
-      // Создаём уведомление, если лайк не свой
       if (post.userId !== session.user.id) {
         await prisma.notification.create({
           data: {

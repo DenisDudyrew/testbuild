@@ -2,32 +2,29 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { hashEmail } from '@/lib/encryption';
+import { registerSchema, validate } from '@/lib/validation';
+import { checkRateLimit, getRateLimitKey, getStrictConfig } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // Rate limiting для регистрации
+    const rlKey = getRateLimitKey(request, 'register');
+    const rl = await checkRateLimit(rlKey, getStrictConfig());
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: 'Слишком много попыток. Попробуйте позже.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetTime - Date.now()) / 1000)) } }
+      );
+    }
+
     const body = await request.json();
-    const { username, password, email } = body;
-
-    if (!username || !password || !email) {
-      return NextResponse.json(
-        { error: 'Username, email and password are required' },
-        { status: 400 }
-      );
+    
+    const validation = validate(registerSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-
-    if (username.length < 3) {
-      return NextResponse.json(
-        { error: 'Логин должен быть минимум 3 символа' },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Пароль должен быть минимум 6 символов' },
-        { status: 400 }
-      );
-    }
+    
+    const { username, password, email } = validation.data;
 
     const emailHash = hashEmail(email);
 

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, User, Flame, Heart, MessageCircle, Repeat2, ArrowLeft, Wind, TrendingUp } from "lucide-react";
+import { Search, User, Flame, Heart, MessageCircle, Repeat2, Wind, TrendingUp } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 
 interface SearchUser {
@@ -113,18 +113,10 @@ export default function SearchPage() {
     <div className="min-h-screen bg-zinc-50">
       <Sidebar />
 
-      <main className="pl-60">
-        <div className="mx-auto max-w-2xl px-4 py-6">
+      <main className="pl-60 max-md:pl-0">
+        <div className="mx-auto max-w-2xl px-4 py-6 animate-fadeIn">
           {/* Заголовок */}
-          <div className="mb-5 flex items-center gap-4">
-            <button
-              onClick={() => router.push("/feed")}
-              className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100"
-            >
-              <ArrowLeft className="size-5" />
-            </button>
-            <h1 className="text-xl font-bold text-zinc-900">Поиск</h1>
-          </div>
+          <h1 className="mb-5 text-xl font-bold text-zinc-900 animate-slideIn pl-12 sm:pl-0">Поиск</h1>
 
           {/* Поле поиска */}
           <div className="relative mb-6">
@@ -171,7 +163,7 @@ export default function SearchPage() {
               </div>
             </>
           ) : isSearching && searchResults.length === 0 ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center animate-fadeIn">
               <Search className="mx-auto mb-3 size-10 text-zinc-300" />
               <p className="text-sm text-zinc-500">Ничего не найдено</p>
             </div>

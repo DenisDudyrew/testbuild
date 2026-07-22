@@ -28,6 +28,16 @@ export async function GET(
             avatar: true,
           },
         },
+        likes: {
+          select: {
+            userId: true,
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+          },
+        },
         replies: {
           include: {
             user: {
@@ -35,6 +45,16 @@ export async function GET(
                 id: true,
                 username: true,
                 avatar: true,
+              },
+            },
+            likes: {
+              select: {
+                userId: true,
+              },
+            },
+            _count: {
+              select: {
+                likes: true,
               },
             },
           },
