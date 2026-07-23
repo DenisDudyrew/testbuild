@@ -194,7 +194,13 @@ export default function Sidebar() {
           <NavItem path="/search" icon={Search} label="Поиск" isActive={isActive('/search')} onClick={() => router.push('/search')} />
           <NavItem path="/notifications" icon={Bell} label="Уведомления" badge={unreadCount} isActive={isActive('/notifications')} onClick={() => router.push('/notifications')} />
           <div className="relative">
-            <NavItem path="/messenger" icon={MessageCircle} label="Сообщения" badge={messengerUnreadCount} isActive={isActive('/messenger')} onClick={() => router.push('/messenger')} />
+            <NavItem path="/messenger" icon={MessageCircle} label="Сообщения" badge={messengerUnreadCount} isActive={isActive('/messenger')} onClick={() => {
+              if (pathname === '/messenger') {
+                window.dispatchEvent(new CustomEvent('messenger:go-home'));
+              } else {
+                router.push('/messenger');
+              }
+            }} />
             {session && (
               <div className="absolute left-0.5 top-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" />
             )}

@@ -113,7 +113,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-white/10 bg-white/50 dark:bg-zinc-900/30 backdrop-blur-lg">
+      <div className="flex items-center justify-between px-5 py-4 max-sm:pl-16 sm:pl-5 border-b border-zinc-200 dark:border-white/10 bg-white/50 dark:bg-zinc-900/30 backdrop-blur-lg">
         <h2 className="text-lg font-bold">Сообщения</h2>
         <button
           onClick={onNewChat}

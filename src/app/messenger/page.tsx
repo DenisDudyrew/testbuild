@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Shield, MessageCircle, Lock, Sparkles } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -35,6 +35,16 @@ export default function MessengerPage() {
   const handleNewChatCreated = useCallback((conversationId: string) => {
     handleSelectConversation(conversationId);
   }, [handleSelectConversation]);
+
+  // Слушаем событие из Sidebar — нажатие «Сообщения» на той же странице
+  useEffect(() => {
+    const handler = () => {
+      setActiveConversation(null);
+      setShowChatOnMobile(false);
+    };
+    window.addEventListener('messenger:go-home', handler);
+    return () => window.removeEventListener('messenger:go-home', handler);
+  }, []);
 
   const handleBackToList = useCallback(() => {
     setShowChatOnMobile(false);

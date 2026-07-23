@@ -343,13 +343,13 @@ export default function ChatView({ conversation, onBack }: Props) {
           {onBack && (
             <button
               onClick={onBack}
-              className="md:hidden w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center transition-all"
+              className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center transition-all"
             >
               <ChevronLeft className="size-5" />
             </button>
           )}
-          <div className="relative">
-            <Avatar id={conversation.id} name={chatName} size={11} round />
+          <div className="relative size-11 shrink-0">
+            <Avatar id={conversation.id} name={chatName} className="size-full" round />
             {otherParticipant && otherOnline && (
               <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900" />
             )}
