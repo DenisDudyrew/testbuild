@@ -13,6 +13,8 @@ export async function GET(request: Request) {
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
+    const cursor = searchParams.get('cursor');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
 
     if (!query || query.length < 2) {
       return NextResponse.json([]);
@@ -26,18 +28,23 @@ export async function GET(request: Request) {
           contains: query,
           mode: 'insensitive',
         },
+        ...(cursor ? { id: { gt: cursor } } : {}),
       },
       select: {
         id: true,
         username: true,
         avatar: true,
         bio: true,
-        lastSeenAt: true,
       },
-      take: 10,
+      orderBy: { id: 'asc' },
+      take: limit + 1,
     });
 
-    return NextResponse.json(users);
+    const hasMore = users.length > limit;
+    const resultUsers = hasMore ? users.slice(0, limit) : users;
+    const nextCursor = hasMore ? resultUsers[resultUsers.length - 1]?.id : null;
+
+    return NextResponse.json({ users: resultUsers, nextCursor });
   } catch (error) {
     console.error('Error searching messenger users:', error);
     return NextResponse.json({ error: 'Failed to search users' }, { status: 500 });

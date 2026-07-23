@@ -30,12 +30,23 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get('cursor');
     const limit = 20;
+    const type = searchParams.get('type'); // image | video | file
+
+    // Фильтр по типу медиа
+    const typeFilter = type === 'image'
+      ? { mediaType: 'image' }
+      : type === 'video'
+        ? { mediaType: 'video' }
+        : type === 'file'
+          ? { mediaType: { notIn: ['image', 'video'] } }
+          : {};
 
     const messages = await prisma.message.findMany({
       where: {
         conversationId,
         deletedAt: null,
         mediaUrl: { not: null },
+        ...typeFilter,
         ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
       },
       include: {

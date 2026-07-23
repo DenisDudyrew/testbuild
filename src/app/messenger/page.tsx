@@ -13,6 +13,7 @@ interface Conversation {
   type: string;
   name: string | null;
   participants: { id: string; username: string; avatar: string | null; lastSeenAt?: string | null }[];
+  lastReadAt?: string | null;
 }
 
 export default function MessengerPage() {

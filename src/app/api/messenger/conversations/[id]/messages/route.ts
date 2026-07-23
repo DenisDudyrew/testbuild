@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { encrypt, decrypt } from '@/lib/encryption';
+import { sendMessageSchema } from '@/lib/validation';
+import { checkRateLimit, getRateLimitKey, getStrictConfig } from '@/lib/rate-limit';
 
 // GET /api/messenger/conversations/[id]/messages
 export async function GET(
@@ -39,6 +41,10 @@ export async function GET(
       where: {
         conversationId,
         deletedAt: null,
+        OR: [
+          { deletedForUserId: null },
+          { deletedForUserId: { not: userId } },
+        ],
         ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
       },
       include: {
@@ -66,6 +72,20 @@ export async function GET(
             },
           },
         },
+        forwardFrom: {
+          include: {
+            sender: {
+              select: { id: true, username: true, avatar: true },
+            },
+          },
+        },
+        deliveryStatuses: {
+          select: {
+            userId: true,
+            status: true,
+            readAt: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
@@ -84,6 +104,12 @@ export async function GET(
         ...msg.replyTo,
         content: (() => {
           try { return decrypt(msg.replyTo.content); } catch { return msg.replyTo.content; }
+        })(),
+      } : null,
+      forwardFrom: msg.forwardFrom ? {
+        ...msg.forwardFrom,
+        content: (() => {
+          try { return decrypt(msg.forwardFrom.content); } catch { return msg.forwardFrom.content; }
         })(),
       } : null,
     }));
@@ -150,6 +176,22 @@ export async function POST(
     }
 
     const userId = session.user.id;
+
+    // Rate limiting
+    const rateLimitKey = getRateLimitKey(request, 'messenger:send');
+    const rateLimitResult = await checkRateLimit(rateLimitKey, getStrictConfig());
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please slow down.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
+          },
+        }
+      );
+    }
+
     const { id: conversationId } = await params;
 
     // Проверяем участника
@@ -166,24 +208,34 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { content, replyToId, mediaUrl, mediaType, mediaName } = await request.json();
+    const body = await request.json();
+    const validation = sendMessageSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error.issues[0]?.message || 'Validation error' }, { status: 400 });
+    }
 
-    if ((!content || !content.trim()) && !mediaUrl) {
+    const { content, replyToId, mediaUrl, mediaType, mediaName, forwardFromId } = validation.data;
+
+    if ((!content || !content.trim()) && !mediaUrl && !forwardFromId) {
       return NextResponse.json({ error: 'Content or media is required' }, { status: 400 });
     }
 
+    const plaintext = content?.trim() || '';
+
     // Шифруем содержимое сообщения перед сохранением
-    const encryptedContent = encrypt(content.trim());
+    const encryptedContent = plaintext ? encrypt(plaintext) : '';
 
     const message = await prisma.message.create({
       data: {
         conversationId,
         senderId: userId,
         content: encryptedContent,
+        searchContent: plaintext || null,
         replyToId: replyToId || null,
         mediaUrl: mediaUrl || null,
         mediaType: mediaType || null,
         mediaName: mediaName || null,
+        forwardFromId: forwardFromId || null,
       },
       include: {
         sender: {
@@ -191,6 +243,17 @@ export async function POST(
             id: true,
             username: true,
             avatar: true,
+          },
+        },
+        forwardFrom: {
+          select: {
+            id: true,
+            content: true,
+            senderId: true,
+            sender: {
+              select: { id: true, username: true },
+            },
+            createdAt: true,
           },
         },
       },
@@ -213,46 +276,37 @@ export async function POST(
       data: { lastReadAt: new Date() },
     });
 
-    return NextResponse.json(message, { status: 201 });
+    // Создаём deliveryStatus для всех участников чата
+    const participants = await prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
+    });
+
+    await prisma.messageDeliveryStatus.createMany({
+      data: participants.map(p => ({
+        messageId: message.id,
+        userId: p.userId,
+        status: p.userId === userId ? 'sent' : 'delivered',
+      })),
+    });
+
+    // Расшифровываем содержимое перед отправкой клиенту
+    const decryptedResponse = {
+      ...message,
+      content: (() => {
+        try { return decrypt(message.content); } catch { return message.content; }
+      })(),
+      forwardFrom: message.forwardFrom ? {
+        ...message.forwardFrom,
+        content: (() => {
+          try { return decrypt(message.forwardFrom.content); } catch { return message.forwardFrom.content; }
+        })(),
+      } : null,
+    };
+
+    return NextResponse.json(decryptedResponse, { status: 201 });
   } catch (error) {
     console.error('Error sending message:', error);
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
-  }
-}
-
-// DELETE /api/messenger/conversations/[id]/messages - удалить сообщение (soft-delete)
-export async function DELETE(
-  request: Request
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = session.user.id;
-    const { messageId } = await request.json();
-
-    if (!messageId) {
-      return NextResponse.json({ error: 'messageId is required' }, { status: 400 });
-    }
-
-    const message = await prisma.message.findUnique({
-      where: { id: messageId },
-    });
-
-    if (!message || message.senderId !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    await prisma.message.update({
-      where: { id: messageId },
-      data: { deletedAt: new Date() },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting message:', error);
-    return NextResponse.json({ error: 'Failed to delete message' }, { status: 500 });
   }
 }

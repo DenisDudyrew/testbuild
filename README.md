@@ -323,3 +323,33 @@ animate-stagger-1…animate-stagger-8 — каскадные задержки д
     - В создании поста как кнопка
 
 Реакции? 
+
+## Zephyr — Update Release 0.0.6
+
+### Мессенджер — улучшения и доработки
+
+Фундаментальная доработка мессенджера по результатам ревью: исправлены архитектурные проблемы, добавлены недостающие функции, написаны тесты.
+
+**Схема Prisma:**
+- **`MessageEditHistory`** — модель для истории редактирований сообщений
+- **`MessageDeliveryStatus`** — статусы доставки и прочтения (per-участник)
+- **`PinnedMessage`** — закреплённые сообщения в чате
+- **`UserBlock`** — блокировка пользователей
+- **`ConversationParticipant`** — новые поля: `archivedAt`, `mutedUntil`, `draftContent`, `pinnedAt`
+
+**API:**
+- **`messages/[messageId]` (PATCH)** — редактирование с сохранением истории в `MessageEditHistory`
+- **`messages/[messageId]` (DELETE)** — удаление с режимами `forMe` (скрыть у себя) и `forEveryone` (удалить для всех)
+- **`conversations/[id]/messages` (GET)** — возвращает `forwardFrom`, `deliveryStatuses`, `pinnedMessages`
+- **`conversations/[id]` (PATCH)** — обновление названия/типа чата
+- **`conversations/[id]` (DELETE)** — выход из чата (`leave`) или удаление (`delete`)
+- **`conversations` (GET)** — сортировка: закреплённые чаты сверху, затем по `lastMessageAt`
+
+**Компоненты:**
+- **`ChatView.tsx`** — пагинация (cursor-based, 50 сообщений), виртуализация списка (react-window), оптимистичный UI с tempId, retry при ошибке, индикатор подключения, разделители дат, unread divider, кнопка scroll-to-bottom, бесконечный скролл
+- **`MessageBubble.tsx`** — read receipts (одна/две галочки, синие — прочитано), forwarded badge, edited, контекстное меню (long-press на мобильных), delete for me/everyone
+- **`ConversationList.tsx`** — сортировка закреплённых чатов сверху, флаг `isPinned`
+
+### Тесты
+- **`src/test/messenger.test.ts`** — 32 теста для мессенджера: API (edit, delete, forward, deliveryStatus, conversations), компоненты (MessageBubble read receipts, ChatView пагинация/connection/scroll, ConversationList поиск/сортировка)
+- Все **248 тестов** в 9 файлах проходят успешно

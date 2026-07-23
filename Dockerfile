@@ -28,6 +28,9 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
+# Компилируем кастомный сервер с Socket.IO в standalone
+RUN npx esbuild server.ts --bundle --platform=node --outfile=.next/standalone/server.custom.js --external:next --external:@prisma/client --external:socket.io --external:*.node --external:encoding --external:bcrypt
+
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -47,7 +50,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=nextjs:nodejs /app/src/lib ./src/lib
-COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
+# server.custom.js компилируется из server.ts на этапе builder (esbuild)
+# и уже лежит в .next/standalone/
 
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh

@@ -14,10 +14,19 @@ interface Props {
   onCancelReply?: () => void;
   disabled?: boolean;
   otherOnline?: boolean;
+  draftContent?: string;
 }
 
-export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply, disabled, otherOnline }: Props) {
+export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply, disabled, otherOnline, draftContent }: Props) {
   const [content, setContent] = useState("");
+
+  // Обрабатываем draftContent (forwarded message)
+  useEffect(() => {
+    if (draftContent) {
+      setContent(draftContent);
+      if (inputRef.current) inputRef.current.focus();
+    }
+  }, [draftContent]);
   const [uploading, setUploading] = useState(false);
   const [attachment, setAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);

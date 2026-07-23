@@ -30,6 +30,7 @@ interface Conversation {
   unreadCount: number;
   lastMessageAt: string;
   pinnedMessages?: { id: string; content: string }[];
+  isPinned?: boolean;
   media?: { id: string; mediaUrl: string; mediaType: string }[];
 }
 
@@ -106,9 +107,16 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
     return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
   };
 
-  const filtered = conversations.filter(conv =>
-    getConversationName(conv).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const sortedAndFiltered = conversations
+    .sort((a, b) => {
+      // Сортировка: pinned чаты сверху, затем по lastMessageAt
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+    })
+    .filter(conv =>
+      getConversationName(conv).toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   return (
     <div className="flex flex-col h-full">
@@ -220,7 +228,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
           <div className="flex items-center justify-center py-12">
             <div className="size-6 animate-spin rounded-full border-2 border-zinc-500 border-t-indigo-400" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : sortedAndFiltered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-zinc-400 dark:text-zinc-500">
             <MessageCircle className="size-10 mb-3 opacity-50" />
             <p className="text-sm">
@@ -236,7 +244,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
             )}
           </div>
         ) : (
-          filtered.map((conv, i) => {
+          sortedAndFiltered.map((conv, i) => {
             const name = getConversationName(conv);
             const isActive = conv.id === activeConversationId;
 

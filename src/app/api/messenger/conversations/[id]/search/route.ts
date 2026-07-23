@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { searchMessagesSchema } from '@/lib/validation';
 
-// GET /api/messenger/conversations/[id]/search?q= — поиск сообщений по содержимому
+// GET /api/messenger/conversations/[id]/search?q= — поиск сообщений по searchContent
+// searchContent хранит plaintext сообщения для возможности полнотекстового поиска
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -30,17 +32,23 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
 
+    const validation = searchMessagesSchema.safeParse({ q: query });
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Invalid search query' }, { status: 400 });
+    }
+
     if (!query || !query.trim()) {
       return NextResponse.json({ messages: [] });
     }
 
-    // Ищем сообщения, не удалённые, содержащие query (case-insensitive)
+    // Ищем сообщения по searchContent (незашифрованное поле) вместо зашифрованного content
     const messages = await prisma.message.findMany({
       where: {
         conversationId,
         deletedAt: null,
-        content: {
-          contains: query,
+        NOT: { deletedForUserId: userId },
+        searchContent: {
+          contains: query.trim(),
           mode: 'insensitive',
         },
       },

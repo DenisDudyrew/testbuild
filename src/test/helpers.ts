@@ -34,6 +34,9 @@ interface MockPrisma {
   message: MockModel;
   messageReaction: MockModel;
   pinnedMessage: MockModel;
+  messageEditHistory: MockModel;
+  messageDeliveryStatus: MockModel;
+  userBlock: MockModel;
   $disconnect: Mock;
   $transaction: Mock;
 }
@@ -76,6 +79,9 @@ const { createMockPrisma, createMockAuth } = vi.hoisted(() => {
       message: createMockModel(),
       messageReaction: createMockModel(),
       pinnedMessage: createMockModel(),
+      messageEditHistory: createMockModel(),
+      messageDeliveryStatus: createMockModel(),
+      userBlock: createMockModel(),
       $disconnect: vi.fn(),
       $transaction: vi.fn((fn: (prisma: MockPrisma) => unknown): unknown => fn(mockPrisma)),
     };

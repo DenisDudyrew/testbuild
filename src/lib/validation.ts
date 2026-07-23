@@ -66,6 +66,37 @@ export const releaseNoteSchema = z.object({
     .min(1, 'Содержание обязательно'),
 });
 
+export const sendMessageSchema = z.object({
+  content: z
+    .string()
+    .max(5000, 'Максимум 5000 символов')
+    .optional()
+    .default(''),
+  replyToId: z.string().nullable().optional(),
+  mediaUrl: z.string().nullable().optional(),
+  mediaType: z.enum(['image', 'video', 'file']).nullable().optional(),
+  mediaName: z.string().nullable().optional(),
+  forwardFromId: z.string().nullable().optional(),
+});
+
+export const deleteMessageSchema = z.object({
+  messageId: z.string().min(1, 'messageId is required'),
+  deleteForEveryone: z.boolean().optional().default(false),
+});
+
+export const createConversationSchema = z.object({
+  participantIds: z.array(z.string()).min(1, 'At least one participant is required'),
+  name: z.string().max(200).nullable().optional(),
+});
+
+export const blockUserSchema = z.object({
+  userId: z.string().min(1, 'userId is required'),
+});
+
+export const searchMessagesSchema = z.object({
+  q: z.string().min(1, 'Search query is required').max(200),
+});
+
 // Вспомогательная функция для валидации
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): { success: true; data: T } | { success: false; error: string } {
   const result = schema.safeParse(data);

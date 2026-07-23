@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { ChevronLeft, Pin, Image as ImageIcon, X, Loader2, Grid3X3 } from "lucide-react";
+import { ChevronLeft, Pin, Image as ImageIcon, X, Loader2, Grid3X3, ArrowDown, WifiOff } from "lucide-react";
+import { List } from "react-window";
 import Avatar from "@/components/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import { useSocket } from "@/lib/socket-client";
 
 
-const POLL_INTERVAL = 15000; // 15 секунд вместо 5
-const POST_DEBOUNCE_MS = 3000; // 3 секунды после отправки
-const TYPING_POLL_INTERVAL = 10000; // 10 секунд вместо 4
+const PAGE_SIZE = 50;
+const POLL_INTERVAL = 15000;
+const POST_DEBOUNCE_MS = 2000;
+const TYPING_POLL_INTERVAL = 5000;
 let localIdCounter = 0;
 
 
@@ -58,7 +60,13 @@ interface Conversation {
   type: string;
   name: string | null;
   participants: Participant[];
+  lastReadAt?: string | null;
 }
+
+type ListItemType =
+  | { type: 'message'; message: Message; index: number }
+  | { type: 'date-separator'; date: string }
+  | { type: 'unread-divider' };
 
 interface Props {
   conversation: Conversation;
@@ -69,23 +77,75 @@ export default function ChatView({ conversation, onBack }: Props) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [typingUsers, setTypingUsers] = useState<{ id: string; username: string }[]>([]);
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [showMedia, setShowMedia] = useState(false);
   const [mediaItems, setMediaItems] = useState<{ id: string; mediaUrl: string; mediaType: string }[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
+  const [draftContent, setDraftContent] = useState<string>('');
+
+  // Вычисляем список элементов для отрисовки (сообщения + date separators + unread divider)
+  const listItems: ListItemType[] = useMemo(() => {
+    if (messages.length === 0) return [];
+    const items: ListItemType[] = [];
+    const unreadDate = conversation.lastReadAt ? new Date(conversation.lastReadAt) : null;
+    let lastDate = '';
+    let unreadInserted = false;
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const msgDate = new Date(msg.createdAt).toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+      });
+
+      if (msgDate !== lastDate) {
+        if (items.length > 0 || i === 0) {
+          items.push({ type: 'date-separator', date: msgDate });
+        }
+        lastDate = msgDate;
+      }
+
+      // Вставляем unread divider перед первым непрочитанным сообщением (только после разделителя даты)
+      if (!unreadInserted && unreadDate && new Date(msg.createdAt) > unreadDate && msg.senderId !== session?.user?.id) {
+        items.push({ type: 'unread-divider' });
+        unreadInserted = true;
+      }
+
+      items.push({ type: 'message', message: msg, index: i });
+    }
+    return items;
+  }, [messages, conversation.lastReadAt, session?.user?.id]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<any>(null);
   const socketRef = useRef<ReturnType<typeof useSocket>>(null!);
-  const lastPollRef = useRef(0);
+  const lastPollRef = useRef(Date.now());
   const isSendingRef = useRef(false);
   const isTypingRef = useRef(false);
+  const prevScrollOffsetRef = useRef(0);
+  const initialLoadRef = useRef(true);
+  const [listHeight, setListHeight] = useState(0);
 
   const socket = useSocket(session?.user?.id, {
     onMessageNew: (message) => {
       setMessages((prev) => {
         if (prev.some(m => m.id === message.id)) return prev;
+        // Ищем оптимистичное сообщение по senderId + content (не по tempId, т.к. localIdCounter не совпадает)
+        const optimisticMatch = prev.find(m =>
+          m.id.startsWith('temp-') &&
+          m.senderId === message.senderId &&
+          m.content.length > 0 &&
+          m.content === message.content
+        );
+        if (optimisticMatch) {
+          return prev.map(m => m.id === optimisticMatch.id ? message : m);
+        }
         return [...prev, message];
       });
     },
@@ -96,23 +156,61 @@ export default function ChatView({ conversation, onBack }: Props) {
     },
   });
 
-  // Синхронизируем socketRef в эффекте, а не во время рендера
+  // Отслеживаем статус подключения
   useEffect(() => {
-    socketRef.current = socket;
-  }, [socket]);
+    if (!socket.connected) {
+      setConnectionStatus("Подключение...");
+      const timer = setTimeout(() => {
+        if (!socket.connected) {
+          setConnectionStatus("Переподключение...");
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setConnectionStatus(null);
+    }
+  }, [socket.connected]);
 
-  const fetchMessages = useCallback(async () => {
+  // Heartbeat for online status
+  useEffect(() => {
+    if (!socket.connected || !session?.user?.id) return;
+    const uid = session.user.id;
+    const interval = setInterval(() => {
+      socketRef.current.sendHeartbeat(uid);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [socket.connected, session?.user?.id]);
+
+  const fetchMessages = useCallback(async (cursor?: string | null) => {
+    const isInitial = !cursor;
+    if (!isInitial) setLoadingMore(true);
     try {
-      const res = await fetch(`/api/messenger/conversations/${conversation.id}/messages`);
+      const params = new URLSearchParams();
+      params.set('limit', String(PAGE_SIZE));
+      if (cursor) params.set('cursor', cursor);
+
+      const res = await fetch(`/api/messenger/conversations/${conversation.id}/messages?${params}`);
       if (!res.ok) {
         console.error(`Failed to fetch messages: ${res.status} ${res.statusText}`);
-        if (res.status === 403) {
-          console.error("Access denied to conversation");
-        }
         return;
       }
       const data = await res.json();
-      setMessages(data.messages || []);
+
+      if (isInitial) {
+        setMessages(data.messages || []);
+        setNextCursor(data.nextCursor);
+        setHasMore(!!data.nextCursor);
+        initialLoadRef.current = true;
+      } else {
+        const container = containerRef.current;
+        if (container) {
+          prevScrollOffsetRef.current = container.scrollTop;
+        }
+        setMessages((prev) => [...(data.messages || []), ...prev]);
+        setNextCursor(data.nextCursor);
+        setHasMore(!!data.nextCursor);
+      }
+
       if (data.pinnedMessages) {
         setPinnedMessages(data.pinnedMessages);
       }
@@ -120,20 +218,65 @@ export default function ChatView({ conversation, onBack }: Props) {
       console.error("Failed to fetch messages:", err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [conversation.id]);
 
-  const fetchTypingStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/messenger/conversations/${conversation.id}/typing`);
-      if (res.ok) {
-        const data = await res.json();
-        setTypingUsers(data.typing);
-      }
-    } catch {
-      // silent
+  // Infinite scroll — загрузка старых сообщений при прокрутке вверх
+  const handleRowsRendered = useCallback(({
+    startIndex,
+    stopIndex,
+  }: {
+    startIndex: number;
+    stopIndex: number;
+  }) => {
+    const isNearBottom = stopIndex >= listItems.length - 3;
+    setShowScrollBtn(!isNearBottom);
+
+    if (startIndex === 0 && hasMore && !loadingMore && !loading) {
+      fetchMessages(nextCursor);
     }
-  }, [conversation.id]);
+  }, [hasMore, loadingMore, loading, nextCursor, fetchMessages, listItems.length]);
+
+  // Восстанавливаем позицию скролла после загрузки старых сообщений
+  useEffect(() => {
+    if (!loadingMore && prevScrollOffsetRef.current > 0) {
+      const list = listRef.current;
+      if (list) {
+        list.scrollToRow({ index: messages.length - 50, align: "start" });
+        prevScrollOffsetRef.current = 0;
+      }
+    }
+  }, [loadingMore, messages]);
+
+  // Scroll to bottom — скроллим к последнему элементу списка (последнему сообщению)
+  const scrollToBottom = useCallback(() => {
+    if (listItems.length > 0) {
+      listRef.current?.scrollToRow({ index: listItems.length - 1, align: "end" });
+    }
+  }, [listItems.length]);
+
+  useEffect(() => {
+    if (initialLoadRef.current && !loading) {
+      scrollToBottom();
+      initialLoadRef.current = false;
+    } else if (!loading && !loadingMore) {
+      const list = listRef.current;
+      if (list && list.element) {
+        const { scrollTop, scrollHeight, clientHeight } = list.element;
+        if (scrollHeight - scrollTop - clientHeight < 400) {
+          scrollToBottom();
+        }
+      }
+    }
+  }, [listItems, loading, loadingMore, scrollToBottom]);
+
+  // Синхронизируем socketRef в эффекте
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+
+
 
   const handleTyping = useCallback(() => {
     const s = socketRef.current;
@@ -171,9 +314,17 @@ export default function ChatView({ conversation, onBack }: Props) {
       fetchMessages();
     }, POLL_INTERVAL);
 
-    const typingInterval = setInterval(() => {
+    const typingInterval = setInterval(async () => {
       if (socketRef.current.connected) return;
-      fetchTypingStatus();
+      try {
+        const res = await fetch(`/api/messenger/conversations/${conversation.id}/typing`);
+        if (res.ok) {
+          const data = await res.json();
+          setTypingUsers(data.typing);
+        }
+      } catch {
+        // silent
+      }
     }, TYPING_POLL_INTERVAL);
 
     return () => {
@@ -184,9 +335,18 @@ export default function ChatView({ conversation, onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.id]);
 
+  // Measure container height for List
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setListHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   const handleReact = async (messageId: string, emoji: string) => {
     try {
@@ -253,7 +413,9 @@ export default function ChatView({ conversation, onBack }: Props) {
       if (res.ok) {
         lastPollRef.current = Date.now();
         const data = await res.json();
-        // Отправляем через Socket.IO для real-time
+        // Заменяем оптимистичное сообщение реальным из ответа сервера
+        setMessages((prev) => prev.map(m => m.id === tempId ? data : m));
+        // Отправляем через Socket.IO для real-time другим участникам
         socketRef.current.sendMessage(conversation.id, data);
       } else {
         // Ошибка — убираем локальное сообщение
@@ -265,6 +427,13 @@ export default function ChatView({ conversation, onBack }: Props) {
     } finally {
       isSendingRef.current = false;
     }
+  };
+
+  const handleForward = (message: Message) => {
+    const text = `[Переслано от ${message.sender.username}]: ${message.content}`;
+    setReplyTo(null);
+    // Автоматически вставляем пересланное сообщение в поле ввода
+    setDraftContent(text);
   };
 
   const handlePin = async (messageId: string) => {
@@ -279,13 +448,17 @@ export default function ChatView({ conversation, onBack }: Props) {
     }
   };
 
-  const handleDelete = async (messageId: string) => {
+  const handleDelete = async (messageId: string, mode: 'forMe' | 'forEveryone' = 'forMe') => {
     try {
-      await fetch(`/api/messenger/conversations/${conversation.id}/messages`, {
+      await fetch(`/api/messenger/messages/${messageId}?mode=${mode}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId }),
       });
+      // Оптимистично убираем сообщение из локального списка
+      if (mode === 'forMe') {
+        setMessages((prev) => prev.filter(m => m.id !== messageId));
+      } else {
+        setMessages((prev) => prev.map(m => m.id === messageId ? { ...m, deletedAt: new Date().toISOString() } : m));
+      }
     } catch (err) {
       console.error("Failed to delete message:", err);
     }
@@ -321,6 +494,67 @@ export default function ChatView({ conversation, onBack }: Props) {
 
   const otherParticipant = conversation.participants.find(p => p.id !== session?.user?.id);
   const otherOnline = otherParticipant ? isOnline(otherParticipant.lastSeenAt) : false;
+
+  // Функция для примерной высоты строки (Bug 5 — динамический расчёт)
+  const estimateRowHeight = useCallback((index: number): number => {
+    const item = listItems[index];
+    if (!item) return 80;
+    if (item.type === 'date-separator' || item.type === 'unread-divider') return 40;
+    const msg = item.message;
+    let height = 60; // base height
+    if (msg.mediaUrl) height += 180; // media
+    if (msg.replyTo) height += 40;
+    if (msg.content.length > 100) height += 20; // long text
+    if (Object.keys(msg.reactions || {}).length > 0) height += 30;
+    return height;
+  }, [listItems]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Row = useCallback(({ index, style }: any) => {
+    const item = listItems[index];
+    if (!item) return null;
+
+    if (item.type === 'date-separator') {
+      return (
+        <div style={style} className="flex items-center gap-4 py-2 px-2">
+          <div className="flex-1 h-px bg-zinc-200 dark:bg-white/10" />
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 px-3 py-1 rounded-full glass">
+            {item.date}
+          </span>
+          <div className="flex-1 h-px bg-zinc-200 dark:bg-white/10" />
+        </div>
+      );
+    }
+
+    if (item.type === 'unread-divider') {
+      return (
+        <div style={style} className="flex items-center gap-4 py-2 px-2">
+          <div className="flex-1 h-px bg-indigo-500/40" />
+          <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 px-3 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10">
+            Новые сообщения
+          </span>
+          <div className="flex-1 h-px bg-indigo-500/40" />
+        </div>
+      );
+    }
+
+    const msg = item.message;
+    return (
+      <div style={style}>
+        <MessageBubble
+          message={msg}
+          isOwn={msg.senderId === session?.user?.id}
+          onDelete={handleDelete}
+          onReply={setReplyTo}
+          onReact={handleReact}
+          onEdit={handleEdit}
+          onPin={handlePin}
+          onForward={handleForward}
+          stagger={item.index + 1}
+        />
+      </div>
+    );
+  }, [listItems, session, handleDelete, handleReact, handleEdit, handlePin, handleForward]);
 
   const formatLastSeen = (lastSeenAt?: string | null): string => {
     if (!lastSeenAt) return "";
@@ -438,10 +672,17 @@ export default function ChatView({ conversation, onBack }: Props) {
           )}
         </div>
       ) : (
-        /* Messages */
+        <>
+        {/* Connection status banner */}
+        {connectionStatus && (
+          <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20">
+            <WifiOff className="size-3 text-amber-500" />
+            <span className="text-[11px] text-amber-700 dark:text-amber-400">{connectionStatus}</span>
+          </div>
+        )}
         <div
           ref={containerRef}
-          className="flex-1 overflow-y-auto px-5 py-4 space-y-3 scroll-smooth"
+          className="flex-1 overflow-y-auto px-5 py-4 scroll-smooth"
         >
           {loading ? (
             <div className="flex items-center justify-center py-16">
@@ -477,54 +718,51 @@ export default function ChatView({ conversation, onBack }: Props) {
                 </div>
               )}
 
-              {/* Date separator for first message */}
-              <div className="flex items-center gap-4 py-2">
-                <div className="flex-1 h-px bg-zinc-200 dark:bg-white/10" />
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 px-3 py-1 rounded-full glass">
-                  {new Date(messages[0].createdAt).toLocaleDateString("ru-RU", {
-                    day: "numeric",
-                    month: "long",
-                  })}
-                </span>
-                <div className="flex-1 h-px bg-zinc-200 dark:bg-white/10" />
-              </div>
-
-              {messages.map((msg, i) => (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isOwn={msg.senderId === session?.user?.id}
-                  onDelete={handleDelete}
-                  onReply={setReplyTo}
-                  onReact={handleReact}
-                  onEdit={handleEdit}
-                  onPin={handlePin}
-                  stagger={i + 1}
-                />
-              ))}
-              <div ref={messagesEndRef} />
+              {listHeight > 0 && (() => {
+                const L = List as any;
+                return (
+                  <L
+                    style={{ height: listHeight, width: '100%' }}
+                    rowCount={listItems.length}
+                    rowHeight={estimateRowHeight}
+                    listRef={listRef}
+                    onRowsRendered={handleRowsRendered}
+                    rowComponent={Row}
+                    rowProps={{}}
+                  />
+                );
+              })()}
+            
             </>
           )}
         </div>
-      )}
+        {/* Scroll to bottom button */}
+        {showScrollBtn && (
+          <button
+            onClick={() => scrollToBottom()}
+            className="absolute bottom-24 right-6 w-10 h-10 rounded-full bg-white dark:bg-zinc-800 shadow-lg border border-zinc-200 dark:border-zinc-700 flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all animate-slideIn z-10"
+          >
+            <ArrowDown className="size-5 text-zinc-600 dark:text-zinc-300" />
+          </button>
+        )}
+        {/* Typing indicator */}
+        {typingUsers.length > 0 && (
+          <div className="px-5 py-1 text-[11px] text-zinc-400 dark:text-zinc-500 italic">
+            {typingUsers.map((u) => u.username).join(", ")}{" "}
+            {typingUsers.length === 1 ? "печатает" : "печатают"}…
+          </div>
+        )}
 
-      {/* Typing indicator */}
-      {typingUsers.length > 0 && !showMedia && (
-        <div className="px-5 py-1 text-[11px] text-zinc-400 dark:text-zinc-500 italic">
-          {typingUsers.map((u) => u.username).join(", ")}{" "}
-          {typingUsers.length === 1 ? "печатает" : "печатают"}…
-        </div>
-      )}
-
-      {/* Input */}
-      {!showMedia && (
+        {/* Input */}
         <MessageInput
           onSend={handleSend}
           onTyping={handleTyping}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           otherOnline={otherOnline}
+          draftContent={draftContent}
         />
+        </>
       )}
     </div>
   );

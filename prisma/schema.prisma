@@ -36,6 +36,9 @@ model User {
   lastSeenAt              DateTime?
   pinnedMessages          PinnedMessage[]
   votes                   Vote[]
+  blockedUsers            UserBlock[]                @relation("Blocker")
+  blockedBy               UserBlock[]                @relation("Blocked")
+  deliveryStatuses        MessageDeliveryStatus[]
 }
 
 model Post {
@@ -174,6 +177,10 @@ model ConversationParticipant {
   joinedAt       DateTime     @default(now())
   lastReadAt     DateTime     @default(now())
   typingAt       DateTime?
+  mutedUntil     DateTime?
+  draftContent   String?      @db.Text
+  archivedAt     DateTime?
+  pinnedAt       DateTime?
 
   @@unique([conversationId, userId])
 }
@@ -185,6 +192,7 @@ model Message {
   senderId       String
   sender         User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content        String            @db.Text // encrypted at rest
+  searchContent  String?           @db.Text // plaintext for search
   replyToId      String?
   replyTo        Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies        Message[]         @relation("MessageReplies")
@@ -194,8 +202,14 @@ model Message {
   createdAt      DateTime          @default(now())
   editedAt       DateTime?
   deletedAt      DateTime?
+  deletedForUserId String?         // "delete for me"
+  forwardFromId  String?
+  forwardFrom    Message?          @relation("ForwardedFrom", fields: [forwardFromId], references: [id], onDelete: SetNull)
+  forwardedBy    Message[]         @relation("ForwardedFrom")
   reactions      MessageReaction[]
   pinnedBy       PinnedMessage[]
+  editHistory    MessageEditHistory[]
+  deliveryStatuses MessageDeliveryStatus[]
 
   @@index([conversationId, createdAt])
   @@index([conversationId, mediaType])
@@ -212,6 +226,44 @@ model MessageReaction {
 
   @@unique([messageId, userId, emoji])
   @@map("message_reactions")
+}
+
+model MessageEditHistory {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  oldContent String  @db.Text
+  editedAt  DateTime @default(now())
+
+  @@index([messageId])
+  @@map("message_edit_history")
+}
+
+model MessageDeliveryStatus {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String   @default("sent") // "sent" | "delivered" | "read"
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([userId, status])
+  @@map("message_delivery_status")
+}
+
+model UserBlock {
+  id          String   @id @default(cuid())
+  blockerId   String
+  blocker     User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId   String
+  blocked     User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@map("user_blocks")
 }
 
 model Follow {

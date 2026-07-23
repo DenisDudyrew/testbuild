@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const ALLOWED_TYPES = [
   'image/jpeg', 'image/png', 'image/gif', 'image/webp',
@@ -12,6 +13,25 @@ const ALLOWED_TYPES = [
   'text/plain',
 ];
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+
+const EXT_MAP: Record<string, string> = {
+  jpeg: 'jpg',
+  jpg: 'jpg',
+  png: 'png',
+  gif: 'gif',
+  webp: 'webp',
+  mp4: 'mp4',
+  webm: 'webm',
+  pdf: 'pdf',
+  doc: 'doc',
+  docx: 'docx',
+  txt: 'txt',
+};
+
+function sanitizeExtension(originalName: string): string {
+  const ext = originalName.split('.').pop()?.toLowerCase() || '';
+  return EXT_MAP[ext] || 'bin';
+}
 
 export async function POST(request: Request) {
   try {
@@ -44,12 +64,36 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const ext = file.name.split('.').pop() || 'bin';
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    // Проверка на дубликат по хэшу SHA-256
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-
     await mkdir(uploadDir, { recursive: true });
-    await writeFile(path.join(uploadDir, filename), buffer);
+
+    // Проверяем, есть ли уже файл с таким хэшем
+    let existingFilename: string | null = null;
+    try {
+      const files = await readdir(uploadDir);
+      for (const f of files) {
+        if (f.startsWith(fileHash)) {
+          existingFilename = f;
+          break;
+        }
+      }
+    } catch {
+      // Если прочитать не удалось, просто создаём новый
+    }
+
+    let filename: string;
+
+    if (existingFilename) {
+      filename = existingFilename;
+    } else {
+      const safeExt = sanitizeExtension(file.name);
+      const random = crypto.randomBytes(4).toString('hex');
+      filename = `${fileHash}-${random}.${safeExt}`;
+
+      await writeFile(path.join(uploadDir, filename), buffer);
+    }
 
     const mediaType = file.type.startsWith('video/')
       ? 'video'

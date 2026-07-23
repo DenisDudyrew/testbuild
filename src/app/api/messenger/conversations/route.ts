@@ -68,29 +68,30 @@ export async function GET() {
       orderBy: { lastMessageAt: 'desc' },
     });
 
-    // Получаем непрочитанные счётчики
-    const unreadCounts = await Promise.all(
-      conversations.map(async (conv) => {
-        const participant = conv.participants.find(p => p.userId === userId);
-        if (!participant || !participant.lastReadAt) {
-          return { conversationId: conv.id, count: 0 };
-        }
+    // Получаем непрочитанные счётчики одним запросом (raw query вместо N+1)
+    const conversationIds = conversations.map(c => c.id);
+    const unreadRows: Array<{ conversationId: string; unread_count: bigint }> = await prisma.$queryRaw`
+      SELECT
+        m."conversationId",
+        COUNT(*)::bigint AS unread_count
+      FROM "Message" m
+      WHERE m."conversationId" = ANY(${conversationIds}::text[])
+        AND m."senderId" != ${userId}
+        AND m."deletedAt" IS NULL
+        AND (m."deletedForUserId" IS NULL OR m."deletedForUserId" != ${userId})
+        AND m."createdAt" > (
+          SELECT cp."lastReadAt"
+          FROM "ConversationParticipant" cp
+          WHERE cp."conversationId" = m."conversationId"
+            AND cp."userId" = ${userId}
+        )
+      GROUP BY m."conversationId"
+    `;
 
-        const count = await prisma.message.count({
-          where: {
-            conversationId: conv.id,
-            senderId: { not: userId },
-            createdAt: { gt: participant.lastReadAt },
-            deletedAt: null,
-          },
-        });
-        return { conversationId: conv.id, count };
-      })
-    );
-
-    const unreadMap = Object.fromEntries(
-      unreadCounts.map(u => [u.conversationId, u.count])
-    );
+    const unreadMap: Record<string, number> = {};
+    for (const row of unreadRows) {
+      unreadMap[row.conversationId] = Number(row.unread_count);
+    }
 
     const result = conversations.map(conv => ({
       id: conv.id,

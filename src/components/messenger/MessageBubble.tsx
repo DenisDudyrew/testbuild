@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCheck, Trash2, Reply, FileText, Pencil, SmilePlus, Pin } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { CheckCheck, Trash2, Reply, FileText, Pencil, SmilePlus, Pin, Forward, Info, Copy, X } from "lucide-react";
 import Avatar from "@/components/Avatar";
 
 interface MessageReaction {
@@ -33,6 +33,16 @@ interface Message {
   reactions?: MessageReaction[];
   editedAt?: string | null;
   pinnedBy?: { id: string } | null;
+  deletedAt?: string | null;
+  deletedForUserId?: string | null;
+  forwardFrom?: {
+    id: string;
+    content: string;
+    senderId: string;
+    sender: { id: string; username: string };
+  } | null;
+  deliveryStatus?: string; // "sent" | "delivered" | "read"
+  editHistory?: { id: string; oldContent: string; editedAt: string }[];
 }
 
 const EMOJI_LIST = ["\u2764\ufe0f", "\ud83d\ude02", "\ud83d\ude2e", "\ud83d\ude22", "\ud83d\udc4d", "\ud83d\udd25"];
@@ -40,19 +50,29 @@ const EMOJI_LIST = ["\u2764\ufe0f", "\ud83d\ude02", "\ud83d\ude2e", "\ud83d\ude2
 interface Props {
   message: Message;
   isOwn: boolean;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string, mode?: 'forMe' | 'forEveryone') => void;
   onReply?: (message: Message) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onEdit?: (messageId: string, content: string) => void;
   onPin?: (messageId: string) => void;
+  onForward?: (message: Message) => void;
   stagger?: number;
 }
 
-export default function MessageBubble({ message, isOwn, onDelete, onReply, onReact, onEdit, onPin, stagger = 1 }: Props) {
+export default function MessageBubble({ message, isOwn, onDelete, onReply, onReact, onEdit, onPin, onForward, stagger = 1 }: Props) {
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false);
+  const [showEditHistory, setShowEditHistory] = useState(false);
+  const [showEmojiMenu, setShowEmojiMenu] = useState(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const messageRef = useRef<HTMLDivElement>(null);
+  const touchPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -84,14 +104,52 @@ export default function MessageBubble({ message, isOwn, onDelete, onReply, onRea
     return acc;
   }, {});
 
+  const handleContextMenu = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    let x = 0, y = 0;
+    if ('touches' in e && e.touches.length > 0) {
+      x = e.touches[0].clientX;
+      y = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      x = e.clientX;
+      y = e.clientY;
+    }
+    // Adjust to keep menu within viewport
+    const menuWidth = 180;
+    const menuHeight = 300;
+    const maxX = window.innerWidth - menuWidth - 16;
+    const maxY = window.innerHeight - menuHeight - 16;
+    setContextMenuPos({ x: Math.min(x, Math.max(maxX, 0)), y: Math.min(y, Math.max(maxY, 0)) });
+    setShowContextMenu(true);
+  }, []);
+
   return (
     <div
+      ref={messageRef}
       className={`flex items-end gap-2.5 group message-enter ${
         isOwn ? "justify-end" : "justify-start"
       }`}
       style={{ animationDelay: `${Math.min(stagger * 0.04, 0.3)}s` }}
       onMouseEnter={() => { setShowActions(true); setShowEmojiPicker(false); }}
       onMouseLeave={() => setShowActions(false)}
+      onContextMenu={handleContextMenu}
+      onTouchStart={(e) => {
+        const touch = e.touches[0];
+        touchPosRef.current = { x: touch.clientX, y: touch.clientY };
+        longPressTimer.current = setTimeout(() => {
+          if (touchPosRef.current) {
+            const pos = touchPosRef.current;
+            const menuWidth = 180;
+            const menuHeight = 300;
+            const maxX = window.innerWidth - menuWidth - 16;
+            const maxY = window.innerHeight - menuHeight - 16;
+            setContextMenuPos({ x: Math.min(pos.x, Math.max(maxX, 0)), y: Math.min(pos.y, Math.max(maxY, 0)) });
+            setShowContextMenu(true);
+          }
+        }, 500);
+      }}
+      onTouchEnd={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
+      onTouchMove={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
     >
       {/* Avatar for received messages */}
       {!isOwn && (
@@ -188,7 +246,13 @@ export default function MessageBubble({ message, isOwn, onDelete, onReply, onRea
               <span className="text-[9px] text-zinc-400 dark:text-zinc-500 italic">(\u0438\u0437\u043c\u0435\u043d\u0435\u043d\u043e)</span>
             )}
             {isOwn && (
-              <CheckCheck className="size-3 text-zinc-500/80 dark:text-white/80" />
+              message.deliveryStatus === "read" ? (
+                <CheckCheck className="size-3 text-blue-500" />
+              ) : message.deliveryStatus === "delivered" ? (
+                <CheckCheck className="size-3 text-zinc-500/80 dark:text-white/80" />
+              ) : (
+                <CheckCheck className="size-3 text-zinc-400/60 dark:text-white/60" />
+              )
             )}
           </div>
         </div>
@@ -277,7 +341,7 @@ export default function MessageBubble({ message, isOwn, onDelete, onReply, onRea
           )}
           {isOwn && onDelete && (
             <button
-              onClick={() => onDelete(message.id)}
+              onClick={() => onDelete(message.id, 'forEveryone')}
               className="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-500/20 hover:bg-red-200 dark:hover:bg-red-500/40 flex items-center justify-center transition-all duration-200 hover:scale-110"
               title="\u0423\u0434\u0430\u043b\u0438\u0442\u044c"
             >
@@ -285,7 +349,156 @@ export default function MessageBubble({ message, isOwn, onDelete, onReply, onRea
             </button>
           )}
         </div>
+        {/* Forward button */}
+        {onForward && (
+          <button
+            onClick={() => onForward(message)}
+            className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center transition-all duration-200 hover:scale-110"
+            title="Переслать"
+          >
+            <Forward className="size-3" />
+          </button>
+        )}
+        {isOwn && message.editedAt && message.editHistory && message.editHistory.length > 0 && (
+          <button
+            onClick={() => setShowEditHistory(!showEditHistory)}
+            className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center transition-all duration-200 hover:scale-110"
+            title="История изменений"
+          >
+            <Info className="size-3" />
+          </button>
+        )}
       </div>
+
+      {/* Context Menu (long-press / right-click) */}
+      {showContextMenu && contextMenuPos && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 p-2 min-w-[180px]"
+          style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
+        >
+          <button
+            onClick={() => { onReply?.(message); setShowContextMenu(false); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-sm text-left transition-all"
+          >
+            <Reply className="size-4" /> Ответить
+          </button>
+          {onReact && (
+            <>
+              {showEmojiMenu ? (
+                <div className="flex flex-wrap gap-1 p-2 pb-1">
+                  <div className="w-full text-[10px] text-zinc-400 dark:text-zinc-500 mb-1 font-medium">Выберите реакцию</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {EMOJI_LIST.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => { onReact(message.id, emoji); setShowContextMenu(false); setShowEmojiMenu(false); }}
+                        className="w-8 h-8 flex items-center justify-center text-lg hover:bg-zinc-100 dark:hover:bg-white/10 rounded-lg transition-all hover:scale-125"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowEmojiMenu(true)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-sm text-left transition-all"
+                >
+                  <SmilePlus className="size-4" /> Реакция
+                </button>
+              )}
+            </>
+          )}
+          {onForward && (
+            <button
+              onClick={() => { onForward(message); setShowContextMenu(false); }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-sm text-left transition-all"
+            >
+              <Forward className="size-4" /> Переслать
+            </button>
+          )}
+          <button
+            onClick={() => { navigator.clipboard.writeText(message.content); setShowContextMenu(false); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-sm text-left transition-all"
+          >
+            <Copy className="size-4" /> Копировать
+          </button>
+          {isOwn && onDelete && (
+            <>
+              <div className="h-px bg-zinc-200 dark:bg-white/10 my-1" />
+              <button
+                onClick={() => { onDelete(message.id, 'forEveryone'); setShowContextMenu(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/20 text-sm text-left text-red-600 dark:text-red-400 transition-all"
+              >
+                <Trash2 className="size-4" /> Удалить для всех
+              </button>
+              <button
+                onClick={() => { onDelete(message.id, 'forMe'); setShowContextMenu(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/20 text-sm text-left text-red-600 dark:text-red-400 transition-all"
+              >
+                <X className="size-4" /> Удалить для себя
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setShowContextMenu(false)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-sm text-left transition-all mt-1"
+          >
+            <X className="size-4" /> Отмена
+          </button>
+        </div>
+      )}
+
+      {/* Delete menu */}
+      {showDeleteMenu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowDeleteMenu(false)}>
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-4 min-w-[240px]" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-semibold mb-3 text-center">Удалить сообщение</p>
+            <button
+              onClick={() => { onDelete?.(message.id, 'forEveryone'); setShowDeleteMenu(false); }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/20 text-sm text-red-600 dark:text-red-400 transition-all"
+            >
+              <Trash2 className="size-4" /> Удалить для всех
+            </button>
+            <button
+              onClick={() => { onDelete?.(message.id, 'forMe'); setShowDeleteMenu(false); }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/20 text-sm text-red-600 dark:text-red-400 transition-all"
+            >
+              <X className="size-4" /> Удалить для себя
+            </button>
+            <button
+              onClick={() => setShowDeleteMenu(false)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-sm transition-all mt-2"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit history */}
+      {showEditHistory && message.editHistory && message.editHistory.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowEditHistory(false)}>
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-4 min-w-[280px] max-w-sm max-h-64 overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-semibold mb-3">История изменений</p>
+            {message.editHistory.map((entry) => (
+              <div key={entry.id} className="mb-2 p-2 rounded-xl bg-zinc-50 dark:bg-white/10">
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5">
+                  {new Date(entry.editedAt).toLocaleString("ru-RU")}
+                </p>
+                <p className="text-sm">{entry.oldContent}</p>
+              </div>
+            ))}
+            <button
+              onClick={() => setShowEditHistory(false)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-white/10 text-sm transition-all mt-2"
+            >
+              <X className="size-4" /> Закрыть
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Spacer for own messages */}
       {isOwn && <div className="w-2" />}

@@ -81,7 +81,16 @@ export function useSocket(userId: string | undefined, handlers: SocketHandlers) 
       setConnected(false);
     });
 
+    // Авто-запуск heartbeat при подключении
+    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+    socket.on('connect', () => {
+      heartbeatInterval = setInterval(() => {
+        socket.emit('online:heartbeat', userId);
+      }, 30000);
+    });
+
     return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       socket.disconnect();
       socketRef.current = null;
     };

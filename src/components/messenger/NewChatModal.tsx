@@ -39,7 +39,7 @@ export default function NewChatModal({ onClose, onSelect }: Props) {
         const res = await fetch(`/api/messenger/users?q=${encodeURIComponent(query)}`);
         if (res.ok) {
           const data = await res.json();
-          setUsers(data);
+          setUsers(data.users ?? data);
         }
       } catch {
         // ignore
