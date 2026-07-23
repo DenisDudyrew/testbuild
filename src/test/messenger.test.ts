@@ -98,7 +98,7 @@ const mockSession = {
 describe("Messenger API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAuth.mockResolvedValue(mockSession as any);
+    mockAuth.mockResolvedValue(mockSession as never);
   });
 
   // --- Messages PATCH (edit) ---
@@ -113,7 +113,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ content: "updated" }),
       });
 
-      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(401);
 
       const body = await response.json();
@@ -128,7 +128,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ content: "" }),
       });
 
-      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(400);
 
       const body = await response.json();
@@ -150,7 +150,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ content: "updated" }),
       });
 
-      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(403);
     });
 
@@ -169,7 +169,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ content: "updated" }),
       });
 
-      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual({ error: "Cannot edit deleted message" });
     });
@@ -196,7 +196,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ content: "updated content" }),
       });
 
-      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await PATCH(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(200);
 
       const body = await response.json();
@@ -233,7 +233,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(401);
     });
 
@@ -244,7 +244,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(400);
     });
 
@@ -266,7 +266,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(200);
 
       const body = await response.json();
@@ -297,7 +297,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(200);
 
       const body = await response.json();
@@ -327,7 +327,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ messageId: "msg1" }) } as never);
       expect(response.status).toBe(403);
       expect(await response.json()).toEqual({ error: "Only the sender can delete for everyone" });
     });
@@ -364,7 +364,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ content: "hello", replyToId: null, mediaUrl: null, mediaType: null, mediaName: null, forwardFromId: null }),
       });
 
-      const response = await POST(req, { params: Promise.resolve({ id: "conv1" }) } as any);
+      const response = await POST(req, { params: Promise.resolve({ id: "conv1" }) } as never);
       expect(response.status).toBe(201);
 
       // Verify deliveryStatus was created for all participants
@@ -398,7 +398,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ name: "Updated Name" }),
       });
 
-      const response = await PATCH(req, { params: Promise.resolve({ id: "conv1" }) } as any);
+      const response = await PATCH(req, { params: Promise.resolve({ id: "conv1" }) } as never);
       expect(response.status).toBe(200);
 
       const body = await response.json();
@@ -418,7 +418,7 @@ describe("Messenger API", () => {
         body: JSON.stringify({ type: "invalid" }),
       });
 
-      const response = await PATCH(req, { params: Promise.resolve({ id: "conv1" }) } as any);
+      const response = await PATCH(req, { params: Promise.resolve({ id: "conv1" }) } as never);
       expect(response.status).toBe(400);
     });
   });
@@ -438,7 +438,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ id: "conv1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ id: "conv1" }) } as never);
       expect(response.status).toBe(200);
 
       const body = await response.json();
@@ -460,7 +460,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ id: "conv1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ id: "conv1" }) } as never);
       expect(response.status).toBe(200);
 
       const body = await response.json();
@@ -481,7 +481,7 @@ describe("Messenger API", () => {
         method: "DELETE",
       });
 
-      const response = await DELETE(req, { params: Promise.resolve({ id: "conv1" }) } as any);
+      const response = await DELETE(req, { params: Promise.resolve({ id: "conv1" }) } as never);
       expect(response.status).toBe(400);
     });
   });
@@ -536,7 +536,7 @@ describe("Messenger Validation", () => {
       expect(valid.success).toBe(true);
 
       const invalid = createConversationSchema.safeParse({
-        participantIds: "not-an-array" as any,
+        participantIds: "not-an-array" as never,
       });
       expect(invalid.success).toBe(false);
 

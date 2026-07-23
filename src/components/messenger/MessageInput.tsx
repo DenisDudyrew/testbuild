@@ -23,6 +23,7 @@ export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply,
   // Обрабатываем draftContent (forwarded message)
   useEffect(() => {
     if (draftContent) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setContent(draftContent);
       if (inputRef.current) inputRef.current.focus();
     }

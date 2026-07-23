@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { ChevronLeft, Pin, Image as ImageIcon, X, Loader2, Grid3X3, ArrowDown, WifiOff } from "lucide-react";
-import { List } from "react-window";
+import { List, type RowComponentProps, type ListImperativeAPI } from "react-window";
 import Avatar from "@/components/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
@@ -123,9 +123,9 @@ export default function ChatView({ conversation, onBack }: Props) {
     return items;
   }, [messages, conversation.lastReadAt, session?.user?.id]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<any>(null);
+  const listRef = useRef<ListImperativeAPI | null>(null);
   const socketRef = useRef<ReturnType<typeof useSocket>>(null!);
-  const lastPollRef = useRef(Date.now());
+  const lastPollRef = useRef(0);
   const isSendingRef = useRef(false);
   const isTypingRef = useRef(false);
   const prevScrollOffsetRef = useRef(0);
@@ -157,8 +157,13 @@ export default function ChatView({ conversation, onBack }: Props) {
   });
 
   // Отслеживаем статус подключения
+  const prevConnectedRef = useRef(socket.connected);
   useEffect(() => {
+    if (prevConnectedRef.current === socket.connected) return;
+    prevConnectedRef.current = socket.connected;
+
     if (!socket.connected) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setConnectionStatus("Подключение...");
       const timer = setTimeout(() => {
         if (!socket.connected) {
@@ -509,8 +514,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return height;
   }, [listItems]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Row = useCallback(({ index, style }: any) => {
+  const Row = useCallback(({ index, style }: RowComponentProps) => {
     const item = listItems[index];
     if (!item) return null;
 
@@ -718,20 +722,17 @@ export default function ChatView({ conversation, onBack }: Props) {
                 </div>
               )}
 
-              {listHeight > 0 && (() => {
-                const L = List as any;
-                return (
-                  <L
-                    style={{ height: listHeight, width: '100%' }}
-                    rowCount={listItems.length}
-                    rowHeight={estimateRowHeight}
-                    listRef={listRef}
-                    onRowsRendered={handleRowsRendered}
-                    rowComponent={Row}
-                    rowProps={{}}
-                  />
-                );
-              })()}
+              {listHeight > 0 && (
+                <List
+                  rowProps={{}}
+                  style={{ height: listHeight, width: '100%' }}
+                  rowCount={listItems.length}
+                  rowHeight={estimateRowHeight}
+                  listRef={listRef}
+                  onRowsRendered={handleRowsRendered}
+                  rowComponent={Row}
+                />
+              )}
             
             </>
           )}
