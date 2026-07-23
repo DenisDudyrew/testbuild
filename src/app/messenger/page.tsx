@@ -58,8 +58,8 @@ export default function MessengerPage() {
   return (
     <>
       <Sidebar />
-      <div className="pl-60 max-md:pl-0 min-h-screen bg-gradient-to-br from-zinc-50 via-white to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
-        <div className="flex h-screen">
+      <div className="pl-60 max-md:pl-0 w-full overflow-hidden min-h-screen bg-gradient-to-br from-zinc-50 via-white to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
+        <div className="flex h-screen overflow-hidden">
           {/* Desktop: Conversation List */}
           <div
             className={`
@@ -87,7 +87,6 @@ export default function MessengerPage() {
               <ChatView
                 conversation={activeConversation}
                 onBack={handleBackToList}
-                showBack={showChatOnMobile}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-zinc-50 via-white to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">

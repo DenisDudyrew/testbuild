@@ -36,6 +36,7 @@ services:
       - NEXTAUTH_SECRET=super_secret_local_key_change_in_prod
       - NEXTAUTH_URL=http://localhost:3000
       - AUTH_TRUST_HOST=true
+      - ENCRYPTION_KEY=local-dev-encryption-key-2024
       - SMTP_HOST=smtp.mail.ru
       - SMTP_PORT=465
       - SMTP_USER=zephyroff@internet.ru

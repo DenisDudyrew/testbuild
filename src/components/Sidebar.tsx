@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Wind, Home, User, Shield, Search, LogOut, Bell, Newspaper, MessageCircle, Menu, X, Sun, Moon, Bookmark } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -110,7 +110,7 @@ export default function Sidebar() {
     } catch {}
   };
 
-  const loadMessengerUnreadCount = async () => {
+  const loadMessengerUnreadCount = useCallback(async () => {
     try {
       const res = await fetch('/api/messenger/unread');
       if (res.ok) {
@@ -118,7 +118,7 @@ export default function Sidebar() {
         setMessengerUnreadCount(data.unreadCount);
       }
     } catch {}
-  };
+  }, []);
 
   useEffect(() => {
     if (session) {

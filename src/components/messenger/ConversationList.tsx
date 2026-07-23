@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Plus, MessageCircle, X, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Avatar from "@/components/Avatar";
@@ -48,6 +48,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
   const [messageSearching, setMessageSearching] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [loading, setLoading] = useState(true);
+  const messageSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // removed: isMobile state (unused)
 
@@ -70,7 +71,12 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
     fetchConversations();
     // Poll every 30 seconds instead of 10
     const interval = setInterval(fetchConversations, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (messageSearchTimerRef.current) {
+        clearTimeout(messageSearchTimerRef.current);
+      }
+    };
   }, [fetchConversations]);
 
 
@@ -140,27 +146,35 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
               type="text"
               placeholder="Поиск сообщений..."
               value={messageSearchQuery}
-              onChange={async (e) => {
+              onChange={(e) => {
                 const val = e.target.value;
                 setMessageSearchQuery(val);
                 if (val.length < 2) {
                   setMessageSearchResults([]);
                   setShowMessageSearch(false);
+                  if (messageSearchTimerRef.current) {
+                    clearTimeout(messageSearchTimerRef.current);
+                  }
                   return;
+                }
+                if (messageSearchTimerRef.current) {
+                  clearTimeout(messageSearchTimerRef.current);
                 }
                 setMessageSearching(true);
                 setShowMessageSearch(true);
-                try {
-                  const res = await fetch(`/api/messenger/conversations/${activeConversationId}/search?q=${encodeURIComponent(val)}`);
-                  if (res.ok) {
-                    const data = await res.json();
-                    setMessageSearchResults(data.messages || []);
+                messageSearchTimerRef.current = setTimeout(async () => {
+                  try {
+                    const res = await fetch(`/api/messenger/conversations/${activeConversationId}/search?q=${encodeURIComponent(val)}`);
+                    if (res.ok) {
+                      const data = await res.json();
+                      setMessageSearchResults(data.messages || []);
+                    }
+                  } catch {
+                    // ignore
+                  } finally {
+                    setMessageSearching(false);
                   }
-                } catch {
-                  // ignore
-                } finally {
-                  setMessageSearching(false);
-                }
+                }, 300);
               }}
               className="flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500"
             />

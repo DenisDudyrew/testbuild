@@ -63,10 +63,9 @@ interface Conversation {
 interface Props {
   conversation: Conversation;
   onBack?: () => void;
-  showBack?: boolean;
 }
 
-export default function ChatView({ conversation, onBack, showBack }: Props) {
+export default function ChatView({ conversation, onBack }: Props) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +77,7 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
   const [mediaLoading, setMediaLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<ReturnType<typeof useSocket>>(null!);
   const lastPollRef = useRef(0);
   const isSendingRef = useRef(false);
   const isTypingRef = useRef(false);
@@ -95,6 +95,7 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
       }
     },
   });
+  socketRef.current = socket;
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -156,27 +157,28 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
     setReplyTo(null);
     fetchMessages();
 
-    socket.joinConversation(conversation.id);
+    socketRef.current.joinConversation(conversation.id);
 
     // Fallback polling (если Socket.IO не работает)
     const interval = setInterval(() => {
-      if (socket.connected) return;
+      if (socketRef.current.connected) return;
       if (isSendingRef.current) return;
       if (Date.now() - lastPollRef.current < POST_DEBOUNCE_MS) return;
       fetchMessages();
     }, POLL_INTERVAL);
 
     const typingInterval = setInterval(() => {
-      if (socket.connected) return;
+      if (socketRef.current.connected) return;
       fetchTypingStatus();
     }, TYPING_POLL_INTERVAL);
 
     return () => {
       clearInterval(interval);
       clearInterval(typingInterval);
-      socket.leaveConversation(conversation.id);
+      socketRef.current.leaveConversation(conversation.id);
     };
-  }, [conversation.id, fetchMessages, fetchTypingStatus, socket]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -334,10 +336,10 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
       {/* Chat header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-white/10 shrink-0">
         <div className="flex items-center gap-3">
-          {showBack && onBack && (
+          {onBack && (
             <button
               onClick={onBack}
-              className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center transition-all"
+              className="md:hidden w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center transition-all"
             >
               <ChevronLeft className="size-5" />
             </button>

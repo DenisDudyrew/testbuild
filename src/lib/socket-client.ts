@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import io from 'socket.io-client';
 
 interface MessageData {
@@ -111,7 +111,7 @@ export function useSocket(userId: string | undefined, handlers: SocketHandlers) 
     socketRef.current?.emit('online:heartbeat', userId);
   }, []);
 
-  return {
+  return useMemo(() => ({
     joinConversation,
     leaveConversation,
     sendMessage,
@@ -119,7 +119,7 @@ export function useSocket(userId: string | undefined, handlers: SocketHandlers) 
     stopTyping,
     sendHeartbeat,
     connected,
-  };
+  }), [joinConversation, leaveConversation, sendMessage, sendTyping, stopTyping, sendHeartbeat, connected]);
 }
 
 export function getSocket() {
