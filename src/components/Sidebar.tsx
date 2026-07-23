@@ -81,7 +81,7 @@ function ThemeToggle() {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ hideMobileButton }: { hideMobileButton?: boolean } = {}) {
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -151,7 +151,7 @@ export default function Sidebar() {
         onClick={() => setIsMobileOpen(true)}
         className={`fixed top-4 left-4 z-50 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 p-2.5 shadow-lg border border-zinc-200 dark:border-zinc-700 sm:hidden transition-all duration-300 ${
           isMobileOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
-        } hover:shadow-xl`}
+        } ${hideMobileButton ? 'hidden' : ''} hover:shadow-xl`}
       >
         <Menu className="size-5 text-zinc-700 dark:text-zinc-400" />
       </button>

@@ -67,7 +67,7 @@ export default function MessengerPage() {
 
   return (
     <>
-      <Sidebar />
+      <Sidebar hideMobileButton={showChatOnMobile} />
       <div className="pl-60 max-md:pl-0 w-full overflow-hidden min-h-screen bg-gradient-to-br from-zinc-50 via-white to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
         <div className="flex h-screen overflow-hidden">
           {/* Desktop: Conversation List */}
