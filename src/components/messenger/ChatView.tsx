@@ -95,7 +95,11 @@ export default function ChatView({ conversation, onBack }: Props) {
       }
     },
   });
-  socketRef.current = socket;
+
+  // Синхронизируем socketRef в эффекте, а не во время рендера
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -132,10 +136,11 @@ export default function ChatView({ conversation, onBack }: Props) {
   }, [conversation.id]);
 
   const handleTyping = useCallback(() => {
-    if (socket.connected) {
+    const s = socketRef.current;
+    if (s.connected) {
       if (!isTypingRef.current) {
         isTypingRef.current = true;
-        socket.sendTyping(conversation.id, session?.user?.id || '', session?.user?.name || '');
+        s.sendTyping(conversation.id, session?.user?.id || '', session?.user?.name || '');
         setTimeout(() => { isTypingRef.current = false; }, 4000);
       }
     } else {
@@ -143,7 +148,7 @@ export default function ChatView({ conversation, onBack }: Props) {
         method: "POST",
       }).catch(() => {});
     }
-  }, [conversation.id, session, socket]);
+  }, [conversation.id, session]);
 
   useEffect(() => {
     lastPollRef.current = Date.now();
@@ -152,7 +157,6 @@ export default function ChatView({ conversation, onBack }: Props) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setReplyTo(null);
     fetchMessages();
@@ -250,7 +254,7 @@ export default function ChatView({ conversation, onBack }: Props) {
         lastPollRef.current = Date.now();
         const data = await res.json();
         // Отправляем через Socket.IO для real-time
-        socket.sendMessage(conversation.id, data);
+        socketRef.current.sendMessage(conversation.id, data);
       } else {
         // Ошибка — убираем локальное сообщение
         setMessages((prev) => prev.filter((m) => m.id !== tempId));

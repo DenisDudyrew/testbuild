@@ -38,6 +38,7 @@ export function usePosts() {
       }
     }
     setHighlightCommentId(searchParams.get("commentId"));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Скролл к выделенному посту

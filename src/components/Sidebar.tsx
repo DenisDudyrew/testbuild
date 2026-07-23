@@ -18,7 +18,7 @@ interface NavItemProps {
   badge?: number;
 }
 
-function NavItem({ path: _path, icon: Icon, label, isActive, onClick, activeColor = "text-indigo-700 bg-indigo-50", badge }: NavItemProps) {
+function NavItem({ icon: Icon, label, isActive, onClick, activeColor = "text-indigo-700 bg-indigo-50", badge }: NavItemProps) {
   return (
     <button
       onClick={onClick}
@@ -124,12 +124,10 @@ export default function Sidebar() {
     if (session) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       checkAdmin();
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadUnreadCount();
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadMessengerUnreadCount();
     }
-  }, [session]);
+  }, [session, loadMessengerUnreadCount]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -141,7 +139,7 @@ export default function Sidebar() {
     if (!session) return;
     const interval = setInterval(loadMessengerUnreadCount, 30000); // 30 секунд вместо 15
     return () => clearInterval(interval);
-  }, [session]);
+  }, [session, loadMessengerUnreadCount]);
 
 
   const isActive = (path: string) => pathname === path;

@@ -12,7 +12,7 @@ function safeDecrypt(val: string): string | null {
 }
 
 // GET - получить всех пользователей (только admin)
-export async function GET(_request: Request) {
+export async function GET() {
   try {
     const session = await auth();
     

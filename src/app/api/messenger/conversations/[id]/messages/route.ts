@@ -222,8 +222,7 @@ export async function POST(
 
 // DELETE /api/messenger/conversations/[id]/messages - удалить сообщение (soft-delete)
 export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  request: Request
 ) {
   try {
     const session = await auth();
@@ -232,7 +231,6 @@ export async function DELETE(
     }
 
     const userId = session.user.id;
-    const { id: _conversationId } = await params;
     const { messageId } = await request.json();
 
     if (!messageId) {

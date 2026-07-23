@@ -121,9 +121,8 @@ export default function AdminPage() {
       return;
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkAdminAndLoad();
-  }, [session, status]);
+  }, [session, status, checkAdminAndLoad, router]);
 
   const handleDeleteUser = async (userId: string) => {
     const confirmed = await showConfirm('Вы уверены, что хотите удалить этого пользователя? Все его посты и комментарии будут удалены.');
