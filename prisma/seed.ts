@@ -12,34 +12,77 @@ async function main() {
     where: { username: adminUsername },
   });
 
-  if (existing) {
-    if (existing.role !== 'admin') {
-      await prisma.user.update({
-        where: { username: adminUsername },
-        data: { role: 'admin' },
-      });
-      console.log("Admin user updated with admin role.");
-    } else {
-      console.log("Admin user already exists, skipping seed.");
-    }
-    return;
+  if (!existing) {
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    await prisma.user.create({
+      data: {
+        username: adminUsername,
+        emailHash: hashEmail('admin@zephyr.local'),
+        emailEncrypted: encrypt('admin@zephyr.local'),
+        emailVerified: true,
+        password: hashedPassword,
+        role: 'admin',
+        bio: 'Администратор ZEPHYR',
+      },
+    });
+    console.log(`Admin user created: ${adminUsername} / ${adminPassword}`);
+  } else {
+    console.log("Admin user already exists.");
   }
 
-  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+  // Создаем тестовых пользователей для мессенджера
+  const testUsers = [
+    { username: 'testuser1', email: 'test1@zephyr.local', bio: 'Тестовый пользователь 1' },
+    { username: 'testuser2', email: 'test2@zephyr.local', bio: 'Тестовый пользователь 2' },
+  ];
 
-  await prisma.user.create({
-    data: {
-      username: adminUsername,
-      emailHash: hashEmail('admin@zephyr.local'),
-      emailEncrypted: encrypt('admin@zephyr.local'),
-      emailVerified: true,
-      password: hashedPassword,
-      role: 'admin',
-      bio: 'Администратор ZEPHYR',
-    },
-  });
+  for (const user of testUsers) {
+    const existingUser = await prisma.user.findUnique({ where: { username: user.username } });
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          username: user.username,
+          emailHash: hashEmail(user.email),
+          emailEncrypted: encrypt(user.email),
+          emailVerified: true,
+          password: await bcrypt.hash('password', 10),
+          bio: user.bio,
+        },
+      });
+      console.log(`Test user created: ${user.username}`);
+    }
+  }
 
-  console.log(`Admin user created: ${adminUsername} / ${adminPassword}`);
+  // Создаем тестовый диалог между admin и testuser1
+  const admin = await prisma.user.findUnique({ where: { username: 'admin' } });
+  const testUser1 = await prisma.user.findUnique({ where: { username: 'testuser1' } });
+
+  if (admin && testUser1) {
+    const existingConv = await prisma.conversation.findFirst({
+      where: {
+        type: 'direct',
+        AND: [
+          { participants: { some: { userId: admin.id } } },
+          { participants: { some: { userId: testUser1.id } } },
+        ],
+      },
+    });
+
+    if (!existingConv) {
+      await prisma.conversation.create({
+        data: {
+          type: 'direct',
+          participants: {
+            create: [
+              { userId: admin.id },
+              { userId: testUser1.id },
+            ],
+          },
+        },
+      });
+      console.log('Test conversation created between admin and testuser1');
+    }
+  }
 }
 
 main()

@@ -31,7 +31,9 @@ export async function GET() {
     // Считаем непрочитанные параллельно (устраняем N+1)
     const unreadCounts = await Promise.all(
       conversations.map(async (conv) => {
-        const lastReadAt = conv.participants[0]?.lastReadAt || new Date(0);
+        const lastReadAt = conv.participants[0]?.lastReadAt;
+        if (!lastReadAt) return 0;
+        
         return prisma.message.count({
           where: {
             conversationId: conv.id,

@@ -72,7 +72,9 @@ export async function GET() {
     const unreadCounts = await Promise.all(
       conversations.map(async (conv) => {
         const participant = conv.participants.find(p => p.userId === userId);
-        if (!participant) return { conversationId: conv.id, count: 0 };
+        if (!participant || !participant.lastReadAt) {
+          return { conversationId: conv.id, count: 0 };
+        }
 
         const count = await prisma.message.count({
           where: {

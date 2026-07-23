@@ -68,8 +68,8 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchConversations();
-    // Poll every 10 seconds
-    const interval = setInterval(fetchConversations, 10000);
+    // Poll every 30 seconds instead of 10
+    const interval = setInterval(fetchConversations, 30000);
     return () => clearInterval(interval);
   }, [fetchConversations]);
 

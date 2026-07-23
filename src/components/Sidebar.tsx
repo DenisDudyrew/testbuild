@@ -139,7 +139,7 @@ export default function Sidebar() {
   // Периодический опрос непрочитанных сообщений
   useEffect(() => {
     if (!session) return;
-    const interval = setInterval(loadMessengerUnreadCount, 15000);
+    const interval = setInterval(loadMessengerUnreadCount, 30000); // 30 секунд вместо 15
     return () => clearInterval(interval);
   }, [session]);
 

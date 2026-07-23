@@ -9,9 +9,9 @@ import MessageInput from "./MessageInput";
 import { useSocket } from "@/lib/socket-client";
 
 
-const POLL_INTERVAL = 5000;
-const POST_DEBOUNCE_MS = 2000;
-const TYPING_POLL_INTERVAL = 4000;
+const POLL_INTERVAL = 15000; // 15 секунд вместо 5
+const POST_DEBOUNCE_MS = 3000; // 3 секунды после отправки
+const TYPING_POLL_INTERVAL = 10000; // 10 секунд вместо 4
 let localIdCounter = 0;
 
 
@@ -99,12 +99,17 @@ export default function ChatView({ conversation, onBack, showBack }: Props) {
   const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/messenger/conversations/${conversation.id}/messages`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages);
-        if (data.pinnedMessages) {
-          setPinnedMessages(data.pinnedMessages);
+      if (!res.ok) {
+        console.error(`Failed to fetch messages: ${res.status} ${res.statusText}`);
+        if (res.status === 403) {
+          console.error("Access denied to conversation");
         }
+        return;
+      }
+      const data = await res.json();
+      setMessages(data.messages || []);
+      if (data.pinnedMessages) {
+        setPinnedMessages(data.pinnedMessages);
       }
     } catch (err) {
       console.error("Failed to fetch messages:", err);

@@ -74,7 +74,7 @@ export async function GET(
     const hasMore = messages.length > limit;
     const resultMessages = hasMore ? messages.slice(0, limit) : messages;
 
-        // Дешифруем содержимое сообщений
+    // Дешифруем содержимое сообщений
     const decryptedMessages = resultMessages.map(msg => ({
       ...msg,
       content: (() => {
@@ -99,9 +99,38 @@ export async function GET(
       data: { lastReadAt: new Date() },
     });
 
+    const reversedMessages = decryptedMessages.reverse();
+    const nextCursor = hasMore && reversedMessages.length > 0 
+      ? reversedMessages[0].createdAt.toISOString() 
+      : null;
+
+    // Получаем закрепленные сообщения
+    const pinnedMessages = await prisma.pinnedMessage.findMany({
+      where: { conversationId },
+      include: {
+        message: {
+          include: {
+            sender: {
+              select: { id: true, username: true, avatar: true },
+            },
+          },
+        },
+      },
+      orderBy: { pinnedAt: 'desc' },
+      take: 10,
+    });
+
+    const decryptedPinnedMessages = pinnedMessages.map(pm => ({
+      ...pm.message,
+      content: (() => {
+        try { return decrypt(pm.message.content); } catch { return pm.message.content; }
+      })(),
+    }));
+
     return NextResponse.json({
-      messages: decryptedMessages.reverse(),
-      nextCursor: hasMore ? decryptedMessages[0]?.createdAt.toISOString() : null,
+      messages: reversedMessages,
+      nextCursor,
+      pinnedMessages: decryptedPinnedMessages,
     });
   } catch (error) {
     console.error('Error fetching messages:', error);
