@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, Suspense, useCallback, useEffect } from "react";
+import { useState, Suspense, useCallback, useEffect, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import PostForm from "@/components/PostForm";
 import PostCard from "@/components/PostCard";
@@ -37,6 +37,8 @@ function FeedContent() {
   const [feedHasMore, setFeedHasMore] = useState(true);
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedPage, setFeedPage] = useState(1);
+  const feedPageRef = useRef(feedPage);
+  feedPageRef.current = feedPage;
   const [, setFeedTotal] = useState(0);
   const {
     comments,
@@ -92,11 +94,18 @@ function FeedContent() {
     await loadFeed(nextPage, true);
   }, [feedPage, loadFeed]);
 
-  const refreshPosts = useCallback(() => {
+  // Для нового поста — сбрасываем на страницу 1, чтобы новый пост был наверху
+  const handlePostCreated = useCallback(() => {
     setFeedPage(1);
     loadFeed(1);
     refreshAll();
   }, [loadFeed, refreshAll]);
+
+  // Для репоста — сбрасываем на страницу 1, чтобы новый репост был наверху
+  const handleReposted = useCallback(() => {
+    setFeedPage(1);
+    loadFeed(1);
+  }, [loadFeed]);
 
   const handleBookmark = async (postId: string) => {
     try {
@@ -154,7 +163,7 @@ function FeedContent() {
   const handleDeletePost = async (postId: string) => {
     try {
       await fetch(`/api/posts/${postId}`, { method: "DELETE" });
-      refreshPosts();
+      refreshAll();
     } catch (error) {
       console.error("Failed to delete post:", error);
     }
@@ -177,7 +186,7 @@ function FeedContent() {
           {/* Заголовок ленты */}
           <h1 className="mb-6 text-xl font-bold text-zinc-900 dark:text-white animate-flyInLeft pl-12 sm:pl-0">Лента</h1>
 
-          <PostForm onPostCreated={refreshPosts} />
+          <PostForm onPostCreated={handlePostCreated} />
 
           <div className="space-y-4">
             {feedPosts.length === 0 ? (
@@ -205,7 +214,7 @@ function FeedContent() {
                         setShowAllComments(newSet);
                       }}
                       onAddComment={handleAddComment}
-                      onDeletePost={handleDeletePost}
+                    onDeletePost={handleDeletePost}
                       onEditPost={(postId, content) => {
                         updatePost(postId, { content });
                       }}
@@ -247,7 +256,7 @@ function FeedContent() {
         <RepostModal
           post={repostPost}
           onClose={() => setRepostPost(null)}
-          onReposted={refreshPosts}
+          onReposted={handleReposted}
         />
       )}
     </div>

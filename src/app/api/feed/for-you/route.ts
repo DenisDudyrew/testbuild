@@ -23,10 +23,8 @@ export async function GET(request: Request) {
     });
     const followingIds = following.map(f => f.followingId);
 
-    // Получаем посты с весом
-    const posts = await prisma.post.findMany({
-      skip,
-      take: limit,
+    // Получаем ВСЕ посты (без пагинации) для корректной алгоритмической сортировки
+    const allPosts = await prisma.post.findMany({
       include: {
         user: {
           select: { id: true, username: true, avatar: true },
@@ -65,15 +63,12 @@ export async function GET(request: Request) {
           },
         },
       },
-      orderBy: [
-        // Алгоритмическая сортировка: подписки выше, затем по вовлечённости
-        { createdAt: 'desc' },
-      ],
+      orderBy: { createdAt: 'desc' },
     });
 
     // Подсчитываем алгоритмический вес на стороне сервера
     const now = Date.now();
-    const scored = posts.map(post => {
+    const scored = allPosts.map(post => {
       const hoursAge = (now - new Date(post.createdAt).getTime()) / 3600000;
       const recency = Math.max(0, 1 - hoursAge / 72); // 0-1, затухает за 3 дня
       const engagement = (post._count.likes * 2 + post._count.comments * 3 + post._count.reposts * 1.5);
@@ -85,9 +80,11 @@ export async function GET(request: Request) {
     // Сортируем по скорингу
     scored.sort((a, b) => b._score - a._score);
 
-    const total = await prisma.post.count();
+    // Пагинация ПОСЛЕ сортировки
+    const paginatedPosts = scored.slice(skip, skip + limit);
+    const total = scored.length;
 
-    return NextResponse.json({ posts: scored, total, page, limit });
+    return NextResponse.json({ posts: paginatedPosts, total, page, limit });
   } catch (error) {
     console.error('Error fetching for-you feed:', error);
     return NextResponse.json({ error: 'Failed to fetch feed' }, { status: 500 });
