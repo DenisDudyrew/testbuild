@@ -29,7 +29,8 @@ RUN npx prisma generate
 RUN npm run build
 
 # Компилируем кастомный сервер с Socket.IO в standalone
-RUN npx esbuild server.ts --bundle --platform=node --outfile=.next/standalone/server.custom.js --external:next --external:@prisma/client --external:socket.io --external:*.node --external:encoding --external:bcrypt
+# bcrypt не external — он должен быть встроен или из node_modules
+RUN npx esbuild server.ts --bundle --platform=node --outfile=.next/standalone/server.custom.js --external:next --external:@prisma/client --external:socket.io --external:*.node --external:encoding
 
 FROM base AS runner
 WORKDIR /app
