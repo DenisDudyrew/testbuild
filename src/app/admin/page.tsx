@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { Wind, Users, FileText, Trash2, Edit2, X, Check, Plus, Clock } from "lucide-react";
+import { Wind, Users, FileText, Trash2, Edit2, X, Check, Plus, Clock, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
@@ -48,7 +48,7 @@ interface Post {
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'users' | 'posts' | 'release-notes'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'posts' | 'messenger' | 'release-notes'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +200,17 @@ export default function AdminPage() {
           >
             <FileText className="size-4" />
             Посты ({posts.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('messenger')}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
+              activeTab === 'messenger'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white dark:bg-zinc-900/50 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
+            }`}
+          >
+            <MessageSquare className="size-4" />
+            Мессенджер
           </button>
           <button
             onClick={() => setActiveTab('release-notes')}
@@ -463,6 +474,60 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* Мессенджер */}
+        {activeTab === 'messenger' && (
+          <div className="animate-fadeIn">
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 shadow-sm overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
+                    <MessageSquare className="size-6 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+                      Очистить все данные мессенджера
+                    </h3>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                      Это удалит все диалоги, сообщения, закреплённые сообщения, реакции и историю редактирований.
+                      Пользователи потеряют всю историю переписки. Действие необратимо.
+                    </p>
+                    <div className="mt-4">
+                      <button
+                        onClick={async () => {
+                          const confirmed = await showConfirm(
+                            'Вы уверены, что хотите полностью очистить мессенджер? Это удалит все диалоги и сообщения без возможности восстановления!'
+                          );
+                          if (!confirmed) return;
+                          const doubleConfirmed = await showConfirm(
+                            'Пожалуйста, подтвердите ещё раз. Все данные мессенджера будут безвозвратно удалены.'
+                          );
+                          if (!doubleConfirmed) return;
+                          try {
+                            const res = await fetch('/api/admin/messenger/clear', { method: 'POST' });
+                            if (res.ok) {
+                              showToast('Мессенджер успешно очищен', 'success');
+                            } else {
+                              const err = await res.json();
+                              showToast(err.error || 'Ошибка при очистке', 'error');
+                            }
+                          } catch (error) {
+                            console.error('Error clearing messenger:', error);
+                            showToast('Ошибка при очистке мессенджера', 'error');
+                          }
+                        }}
+                        className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+                      >
+                        <Trash2 className="size-4" />
+                        Очистить мессенджер
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Release Notes */}
         {activeTab === 'release-notes' && (
           <div className="animate-fadeIn">
@@ -624,8 +689,8 @@ export default function AdminPage() {
                       {editingNoteId ? 'Сохранить' : 'Создать'}
                     </button>
                   </div>
-                </div>
               </div>
+            </div>
             )}
           </div>
         )}

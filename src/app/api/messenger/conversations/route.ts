@@ -55,9 +55,6 @@ export async function GET() {
                 content: true,
                 createdAt: true,
                 senderId: true,
-                sender: {
-                  select: { id: true, username: true },
-                },
               },
             },
           },
@@ -70,59 +67,109 @@ export async function GET() {
 
     // Получаем непрочитанные счётчики одним запросом (raw query вместо N+1)
     const conversationIds = conversations.map(c => c.id);
-    const unreadRows: Array<{ conversationId: string; unread_count: bigint }> = await prisma.$queryRaw`
-      SELECT
-        m."conversationId",
-        COUNT(*)::bigint AS unread_count
-      FROM "Message" m
-      WHERE m."conversationId" = ANY(${conversationIds}::text[])
-        AND m."senderId" != ${userId}
-        AND m."deletedAt" IS NULL
-        AND (m."deletedForUserId" IS NULL OR m."deletedForUserId" != ${userId})
-        AND m."createdAt" > (
-          SELECT cp."lastReadAt"
-          FROM "ConversationParticipant" cp
-          WHERE cp."conversationId" = m."conversationId"
-            AND cp."userId" = ${userId}
-        )
-      GROUP BY m."conversationId"
-    `;
-
     const unreadMap: Record<string, number> = {};
-    for (const row of unreadRows) {
-      unreadMap[row.conversationId] = Number(row.unread_count);
+
+    if (conversationIds.length > 0) {
+      try {
+        const unreadRows: Array<{ conversationId: string; unread_count: bigint }> = await prisma.$queryRaw`
+          SELECT
+            m."conversationId",
+            COUNT(*)::bigint AS unread_count
+          FROM "Message" m
+          WHERE m."conversationId" = ANY(${conversationIds}::text[])
+            AND m."senderId" != ${userId}
+            AND m."deletedAt" IS NULL
+            AND (m."deletedForUserId" IS NULL OR m."deletedForUserId" != ${userId})
+            AND m."createdAt" > (
+              SELECT cp."lastReadAt"
+              FROM "ConversationParticipant" cp
+              WHERE cp."conversationId" = m."conversationId"
+                AND cp."userId" = ${userId}
+            )
+          GROUP BY m."conversationId"
+        `;
+
+        for (const row of unreadRows) {
+          unreadMap[row.conversationId] = Number(row.unread_count);
+        }
+      } catch (rawError) {
+        console.error('Error fetching unread counts via raw query, falling back to individual queries:', rawError);
+        // Fallback: получаем непрочитанные по одному
+        for (const convId of conversationIds) {
+          try {
+            const participant = await prisma.conversationParticipant.findUnique({
+              where: { conversationId_userId: { conversationId: convId, userId } },
+              select: { lastReadAt: true },
+            });
+            const unreadCount = await prisma.message.count({
+              where: {
+                conversationId: convId,
+                senderId: { not: userId },
+                deletedAt: null,
+                OR: [
+                  { deletedForUserId: null },
+                  { deletedForUserId: { not: userId } },
+                ],
+                createdAt: {
+                  gt: participant?.lastReadAt || new Date(0),
+                },
+              },
+            });
+            unreadMap[convId] = unreadCount;
+          } catch (fallbackError) {
+            console.error(`Error fetching unread count for conversation ${convId}:`, fallbackError);
+            unreadMap[convId] = 0;
+          }
+        }
+      }
     }
 
-    const result = conversations.map(conv => ({
-      id: conv.id,
-      type: conv.type,
-      name: conv.name,
-      lastMessage: conv.messages[0] ? {
-        ...conv.messages[0],
+    const result = conversations.map(conv => {
+      // Безопасно расшифровываем последнее сообщение
+      const lastMessage = conv.messages[0] ? {
+        id: conv.messages[0].id,
         content: (() => {
           try { return decrypt(conv.messages[0].content); }
           catch { return conv.messages[0].content; }
         })(),
-      } : null,
-      participants: conv.participants.map(p => ({
-        id: p.user.id,
-        username: p.user.username,
-        avatar: p.user.avatar,
-      })),
-      unreadCount: unreadMap[conv.id] || 0,
-      lastMessageAt: conv.lastMessageAt,
-      pinnedMessages: conv.pinnedMessages.map(pm => ({
-        id: pm.message.id,
-        content: (() => {
-          try { return decrypt(pm.message.content); }
-          catch { return pm.message.content; }
-        })(),
-        createdAt: pm.message.createdAt,
-        sender: pm.message.sender,
-        pinnedBy: pm.pinnedById,
-        pinnedAt: pm.pinnedAt,
-      })),
-    }));
+        createdAt: conv.messages[0].createdAt,
+        senderId: conv.messages[0].senderId,
+        mediaUrl: conv.messages[0].mediaUrl,
+        mediaType: conv.messages[0].mediaType,
+        mediaName: conv.messages[0].mediaName,
+        sender: conv.messages[0].sender,
+      } : null;
+
+      // Безопасно загружаем pinnedMessages с обработкой ошибок
+      const pinnedMessages = conv.pinnedMessages
+        .filter(pm => pm.message !== null) // фильтруем, если сообщение удалено
+        .map(pm => ({
+          id: pm.message.id,
+          content: (() => {
+            try { return decrypt(pm.message.content); }
+            catch { return pm.message.content; }
+          })(),
+          createdAt: pm.message.createdAt,
+          senderId: pm.message.senderId,
+          pinnedBy: pm.pinnedById,
+          pinnedAt: pm.pinnedAt,
+        }));
+
+      return {
+        id: conv.id,
+        type: conv.type,
+        name: conv.name,
+        lastMessage,
+        participants: conv.participants.map(p => ({
+          id: p.user.id,
+          username: p.user.username,
+          avatar: p.user.avatar,
+        })),
+        unreadCount: unreadMap[conv.id] || 0,
+        lastMessageAt: conv.lastMessageAt,
+        pinnedMessages,
+      };
+    });
 
     return NextResponse.json(result);
   } catch (error) {
