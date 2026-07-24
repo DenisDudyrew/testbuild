@@ -8,7 +8,7 @@ export PATH="/app/node_modules/.bin:$PATH"
 MAX_RETRIES=30
 i=0
 until [ $i -ge $MAX_RETRIES ]; do
-  if echo "SELECT 1" | prisma db execute --stdin 2>/dev/null; then
+  if prisma db execute --stdin <<< "SELECT 1" 2>/dev/null; then
     echo "Database is ready!"
     break
   fi
@@ -40,4 +40,3 @@ else
   echo "Starting default Next.js standalone server (Socket.IO will NOT work)..."
   exec node server.js
 fi
-
