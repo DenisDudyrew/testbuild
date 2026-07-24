@@ -58,3 +58,6 @@ messenger-mockup-*.html
 
 # playwright
 playwright.config.ts
+
+# ai
+TODO.md
