@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Heart, MessageCircle, Repeat2, X, Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -32,7 +32,7 @@ export default function NotificationPanel({
   const [isLoading, setIsLoading] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications');
       if (res.ok) {
@@ -45,12 +45,11 @@ export default function NotificationPanel({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onUnreadCountChange]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

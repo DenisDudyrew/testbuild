@@ -353,7 +353,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return () => observer.disconnect();
   }, []);
 
-  const handleReact = async (messageId: string, emoji: string) => {
+  const handleReact = useCallback(async (messageId: string, emoji: string) => {
     try {
       await fetch(`/api/messenger/messages/${messageId}/reactions`, {
         method: "POST",
@@ -363,9 +363,9 @@ export default function ChatView({ conversation, onBack }: Props) {
     } catch (err) {
       console.error("Failed to toggle reaction:", err);
     }
-  };
+  }, []);
 
-  const handleEdit = async (messageId: string, content: string) => {
+  const handleEdit = useCallback(async (messageId: string, content: string) => {
     try {
       await fetch(`/api/messenger/messages/${messageId}`, {
         method: "PATCH",
@@ -375,7 +375,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     } catch (err) {
       console.error("Failed to edit message:", err);
     }
-  };
+  }, []);
 
   const handleSend = async (content: string, media?: { url: string; type: string; name: string }) => {
     if (isSendingRef.current) return;
@@ -434,14 +434,14 @@ export default function ChatView({ conversation, onBack }: Props) {
     }
   };
 
-  const handleForward = (message: Message) => {
+  const handleForward = useCallback((message: Message) => {
     const text = `[Переслано от ${message.sender.username}]: ${message.content}`;
     setReplyTo(null);
     // Автоматически вставляем пересланное сообщение в поле ввода
     setDraftContent(text);
-  };
+  }, []);
 
-  const handlePin = async (messageId: string) => {
+  const handlePin = useCallback(async (messageId: string) => {
     try {
       await fetch(`/api/messenger/conversations/${conversation.id}/pin`, {
         method: "POST",
@@ -451,9 +451,9 @@ export default function ChatView({ conversation, onBack }: Props) {
     } catch (err) {
       console.error("Failed to toggle pin:", err);
     }
-  };
+  }, [conversation.id]);
 
-  const handleDelete = async (messageId: string, mode: 'forMe' | 'forEveryone' = 'forMe') => {
+  const handleDelete = useCallback(async (messageId: string, mode: 'forMe' | 'forEveryone' = 'forMe') => {
     try {
       await fetch(`/api/messenger/messages/${messageId}?mode=${mode}`, {
         method: "DELETE",
@@ -467,7 +467,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     } catch (err) {
       console.error("Failed to delete message:", err);
     }
-  };
+  }, []);
 
   const fetchMedia = async () => {
     setMediaLoading(true);

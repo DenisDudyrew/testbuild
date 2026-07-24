@@ -38,7 +38,9 @@ function FeedContent() {
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedPage, setFeedPage] = useState(1);
   const feedPageRef = useRef(feedPage);
-  feedPageRef.current = feedPage;
+  useEffect(() => {
+    feedPageRef.current = feedPage;
+  }, [feedPage]);
   const [, setFeedTotal] = useState(0);
   const {
     comments,

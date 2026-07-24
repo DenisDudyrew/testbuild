@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Wind, Users, FileText, Trash2, Edit2, X, Check, Plus, Clock, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -65,29 +65,7 @@ export default function AdminPage() {
   const [editRole, setEditRole] = useState("user");
   const { showConfirm, showToast } = useToast();
 
-  const checkAdminAndLoad = async () => {
-
-    try {
-      // Проверяем роль пользователя
-      const userResponse = await fetch('/api/users/me');
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        if (userData.role !== 'admin') {
-          router.push('/');
-          return;
-        }
-        setIsAdmin(true);
-        await loadData();
-      }
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      router.push('/');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [usersResponse, postsResponse, notesResponse] = await Promise.all([
         fetch('/api/admin/users'),
@@ -112,7 +90,28 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error loading admin data:', error);
     }
-  };
+  }, []);
+
+  const checkAdminAndLoad = useCallback(async () => {
+    try {
+      // Проверяем роль пользователя
+      const userResponse = await fetch('/api/users/me');
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        if (userData.role !== 'admin') {
+          router.push('/');
+          return;
+        }
+        setIsAdmin(true);
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      router.push('/');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadData, router]);
 
   useEffect(() => {
     if (status === 'loading') return;

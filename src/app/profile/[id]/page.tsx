@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { use } from "react";
 import { Wind, Calendar, Edit, Trash2, Camera, Upload, Repeat2, Heart, MessageCircle, MessageSquareMore } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -93,7 +93,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const headerInputRef = useRef<HTMLInputElement>(null);
   const { showAlert, showToast } = useToast();
 
-  const loadUser = async () => {
+  const loadUser = useCallback(async () => {
     try {
       const response = await fetch(`/api/users/${resolvedParams.id}`);
       if (response.ok) {
@@ -115,7 +115,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     } finally {
       setLoading(false);
     }
-  };
+  }, [resolvedParams.id]);
 
   // removed: loadFollowStatus (unused)
 
