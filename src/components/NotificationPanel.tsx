@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Heart, MessageCircle, Repeat2, X, Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -32,24 +32,23 @@ export default function NotificationPanel({
   const [isLoading, setIsLoading] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      const res = await fetch('/api/notifications');
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications);
-        onUnreadCountChange(data.unreadCount);
-      }
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [onUnreadCountChange]);
-
   useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications');
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data.notifications);
+          onUnreadCountChange(data.unreadCount);
+        }
+      } catch (error) {
+        console.error('Failed to load notifications:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     loadNotifications();
-  }, [loadNotifications]);
+  }, [onUnreadCountChange]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
