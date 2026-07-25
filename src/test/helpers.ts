@@ -39,6 +39,7 @@ interface MockPrisma {
   userBlock: MockModel;
   $disconnect: Mock;
   $transaction: Mock;
+  $queryRawUnsafe: Mock;
 }
 
 // Создаём моки на уровне модуля (vi.hoisted выполняется до vi.mock)
@@ -82,8 +83,9 @@ const { createMockPrisma, createMockAuth } = vi.hoisted(() => {
       messageEditHistory: createMockModel(),
       messageDeliveryStatus: createMockModel(),
       userBlock: createMockModel(),
-      $disconnect: vi.fn(),
-      $transaction: vi.fn((fn: (prisma: MockPrisma) => unknown): unknown => fn(mockPrisma)),
+    $disconnect: vi.fn(),
+    $transaction: vi.fn((fn: (prisma: MockPrisma) => unknown): unknown => fn(mockPrisma)),
+    $queryRawUnsafe: vi.fn(),
     };
   }
 

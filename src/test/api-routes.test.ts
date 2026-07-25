@@ -349,10 +349,13 @@ describe('POST /api/bookmarks', () => {
 });
 
 // ==================== FEED ====================
+import { feedCache } from '@/lib/cache';
+
 describe('GET /api/feed/for-you', () => {
   beforeEach(() => {
     resetMocks();
     setAuthSession('user-1');
+    feedCache().clear();
   });
 
   it('returns 401 if not authenticated', async () => {
@@ -365,6 +368,10 @@ describe('GET /api/feed/for-you', () => {
   it('returns scored posts', async () => {
     const { GET } = await import('@/app/api/feed/for-you/route');
 
+    // Мокаем $queryRawUnsafe для основного запроса и для count
+    mockPrisma.$queryRawUnsafe
+      .mockResolvedValueOnce([{ id: 'post-1' }])
+      .mockResolvedValueOnce([{ total: 1 }]);
     mockPrisma.follow.findMany.mockResolvedValue([{ followingId: 'user-2' }]);
     mockPrisma.post.findMany.mockResolvedValue([
       {
@@ -380,7 +387,6 @@ describe('GET /api/feed/for-you', () => {
         poll: null,
       },
     ]);
-    mockPrisma.post.count.mockResolvedValue(1);
 
     const res = await GET(createGetRequest('http://localhost:3000/api/feed/for-you?page=1&limit=10'));
     expect(res.status).toBe(200);
@@ -395,6 +401,7 @@ describe('GET /api/feed/following', () => {
   beforeEach(() => {
     resetMocks();
     setAuthSession('user-1');
+    feedCache().clear();
   });
 
   it('returns 401 if not authenticated', async () => {

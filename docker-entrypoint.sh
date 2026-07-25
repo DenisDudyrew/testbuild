@@ -5,7 +5,8 @@ echo "Applying database migrations..."
 export PATH="/app/node_modules/.bin:$PATH"
 prisma migrate deploy 
 
-echo "Skipping seed (run manually: docker exec -it <container> npx prisma db seed)"
+echo "Running database seed..."
+prisma db seed || echo "Seed already applied (continuing)"
 
 echo "Starting server..."
 # Запускаем кастомный сервер с Socket.IO (скомпилирован из server.ts)

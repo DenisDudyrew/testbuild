@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { ChevronLeft, Pin, Image as ImageIcon, X, Loader2, Grid3X3, ArrowDown, WifiOff } from "lucide-react";
-import { List, type ListChildComponentProps, type ListOnItemsRenderedProps, type ListOnScrollProps, type ListRef } from "react-window";
+import { List } from "react-window";
 import Avatar from "@/components/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
@@ -123,7 +123,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return items;
   }, [messages, conversation.lastReadAt, session?.user?.id]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<ListRef | null>(null);
+  const listRef = useRef<any>(null);
   const socketRef = useRef<ReturnType<typeof useSocket>>(null!);
   const lastPollRef = useRef(0);
   const isSendingRef = useRef(false);
@@ -221,11 +221,9 @@ export default function ChatView({ conversation, onBack }: Props) {
 
   // Infinite scroll — загрузка старых сообщений при прокрутке вверх
   const handleRowsRendered = useCallback(({
-    overscanStartIndex,
-    overscanStopIndex,
     startIndex,
     stopIndex,
-  }: ListOnItemsRenderedProps) => {
+  }: any) => {
     const isNearBottom = stopIndex >= listItems.length - 3;
     setShowScrollBtn(!isNearBottom);
 
@@ -237,9 +235,11 @@ export default function ChatView({ conversation, onBack }: Props) {
   // Восстанавливаем позицию скролла после загрузки старых сообщений
   useEffect(() => {
     if (!loadingMore && prevScrollOffsetRef.current > 0) {
-      const list = listRef.current;
-      if (list) {
-        list.scrollToRow({ index: messages.length - 50, align: "start" });
+      // В react-window v2 нет прямого API для scrollToItem через ref
+      // Используем containerRef для прокрутки
+      const container = containerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight - prevScrollOffsetRef.current;
         prevScrollOffsetRef.current = 0;
       }
     }
@@ -247,19 +247,20 @@ export default function ChatView({ conversation, onBack }: Props) {
 
   // Scroll to bottom — скроллим к последнему элементу списка (последнему сообщению)
   const scrollToBottom = useCallback(() => {
-    if (listItems.length > 0) {
-      listRef.current?.scrollToRow({ index: listItems.length - 1, align: "end" });
+    const container = containerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
-  }, [listItems.length]);
+  }, []);
 
   useEffect(() => {
     if (initialLoadRef.current && !loading) {
       scrollToBottom();
       initialLoadRef.current = false;
     } else if (!loading && !loadingMore) {
-      const list = listRef.current;
-      if (list && list.element) {
-        const { scrollTop, scrollHeight, clientHeight } = list.element;
+      const container = containerRef.current;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
         if (scrollHeight - scrollTop - clientHeight < 400) {
           scrollToBottom();
         }
@@ -506,7 +507,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return height;
   }, [listItems]);
 
-  const Row = useCallback(({ index, style }: ListChildComponentProps) => {
+  const Row = useCallback(({ index, style, ariaAttributes }: any) => {
     const item = listItems[index];
     if (!item) return null;
 
@@ -716,12 +717,13 @@ export default function ChatView({ conversation, onBack }: Props) {
 
               {listHeight > 0 && (
                 <List
-                  ref={listRef}
+                  listRef={listRef}
                   style={{ height: listHeight, width: '100%' }}
-                  itemCount={listItems.length}
-                  itemSize={estimateRowHeight}
-                  onItemsRendered={handleRowsRendered}
-                  children={Row}
+                  rowCount={listItems.length}
+                  rowHeight={estimateRowHeight}
+                  onRowsRendered={handleRowsRendered}
+                  rowComponent={Row}
+                  rowProps={{}}
                 />
               )}
             

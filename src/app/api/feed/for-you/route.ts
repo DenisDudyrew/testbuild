@@ -41,12 +41,12 @@ export async function GET(request: Request) {
          FROM "Comment" c
          GROUP BY c."postId"
        ) cc ON cc."postId" = p.id
-       LEFT JOIN (
-         SELECT r."repostOfId", COUNT(*) as reposts_count
-         FROM "Post" r
-         WHERE r."repostOfId" IS NOT NULL
-         GROUP BY r."repostOfId"
-       ) rc ON rc."repostOfId" = p.id
+      LEFT JOIN (
+        SELECT r."repost_of_id", COUNT(*) as reposts_count
+        FROM "Post" r
+        WHERE r."repost_of_id" IS NOT NULL
+        GROUP BY r."repost_of_id"
+      ) rc ON rc."repost_of_id" = p.id
        LEFT JOIN "Follow" f ON f."followingId" = p."userId" AND f."followerId" = $1
        WHERE p."createdAt" > NOW() - INTERVAL '7 days'
        ORDER BY (
