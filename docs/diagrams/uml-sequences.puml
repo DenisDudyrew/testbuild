@@ -270,8 +270,8 @@ group Параллельно
   API -> DB: prisma.message.create()
   DB --> API: message { id, createdAt, ... }
   API -> API: decrypt(content) → plaintext для ответа
-  API --> ClientA: { id, content, createdAt, sender, ... }
-  ClientA -> ClientA: Замена temp-message на реальный
+  API --> ClientA: { id: tempId || message.id, content, createdAt, sender, ... }
+  ClientA -> ClientA: Замена temp-message на реальный по tempId
 
   ' Socket.IO broadcast
   ClientA -> SockA: message:send({ conversationId, message })

@@ -231,15 +231,15 @@ sequenceDiagram
     ClientA->>ClientA: Оптимистичное добавление в список
     
     par HTTP запрос
-        ClientA->>API: POST /api/messenger/conversations/{id}/messages { content, replyToId?, mediaUrl? }
+        ClientA->>API: POST /api/messenger/conversations/{id}/messages { content, replyToId?, mediaUrl?, tempId }
         API->>API: auth() — проверка сессии
         API->>API: validate(sendMessageSchema)
         API->>API: encrypt(content) → "iv:tag:ciphertext"
         API->>DB: prisma.message.create({ data: { conversationId, senderId, content: encrypted, searchContent, ... } })
         DB-->>API: message { id, createdAt, ... }
         API->>API: decrypt(content) → plaintext для ответа
-        API-->>ClientA: { id, content, createdAt, sender, ... }
-        ClientA->>ClientA: Замена temp-message на реальный
+        API-->>ClientA: { id: tempId || message.id, content, createdAt, sender, ... }
+        ClientA->>ClientA: Замена temp-message на реальный по tempId
     and Socket.IO broadcast
         ClientA->>SocketA: message:send({ conversationId, message })
         SocketA->>Server: Проверка: senderId === socket.userId

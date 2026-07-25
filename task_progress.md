@@ -1,0 +1,21 @@
+# Task Progress
+- [x] Изучить проект и составить отчёт
+- [x] 🔴 For-you лента — пагинация на уровне БД
+- [x] 🔴 react-window v2 API — подтверждена совместимость
+- [x] 🔴 Поиск по зашифрованным сообщениям — уже исправлен
+- [x] 🔴 Optimistic UI — улучшена синхронизация via socket
+- [x] 🟡 UI переключения For You / Following — добавлены табы в ленту
+- [x] 🟡 UI панели трендов (Trends) — создан компонент TrendsPanel, интегрирован в ленту
+- [x] 🟡 N+1 запросы в conversations API — уже исправлены (используется $queryRaw с ANY())
+- [x] 🟡 Кэширование ленты/сообщений — создан MemoryCache, интегрирован в for-you и following роуты
+- [ ] 🔵 Поиск по сообщениям без индекса — добавить GIN-индекс на searchContent
+- [ ] 🔵 Infinite scroll в ленте — добавить IntersectionObserver
+- [ ] 🔵 Stale unread count после создания сообщения — инвалидация кэша conversations
+- [ ] 🔵 Обработка deletedAt на клиенте — MessageBubble.showDeleted
+- [ ] 🔵 avatar: null fallback — Avatar компонент
+- [ ] 🔵 Тесты для нового функционала
+- [ ] 🔵 Тесты для кэша
+- [ ] 🔵 Тесты для TrendsPanel
+- [ ] ⚪ Все тексты на русском + i18n словарь
+- [ ] ⚪ ESLint no-exhaustive-deps — исправить зависимости
+- [ ] ⚪ any типы в глобальных кэшах — типизировать через дженерики

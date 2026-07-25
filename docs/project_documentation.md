@@ -48,7 +48,7 @@ graph TB
 ```
 testbuild/
 ├── prisma/                      # Prisma schema & migrations
-│   ├── schema.prisma            # Модели данных (13 моделей)
+│   ├── schema.prisma            # Модели данных (22 модели)
 │   ├── seed.ts                  # Сидер для тестовых данных
 │   └── migrations/              # Миграции БД
 ├── src/
@@ -447,18 +447,18 @@ UPSTASH_REDIS_REST_TOKEN=""
 
 ### 10.1 Тестовое покрытие
 
-| Файл тестов | Количество тестов | Что тестирует |
-|-------------|------------------|---------------|
-| `encryption.test.ts` | 11 | AES шифрование/дешифрование |
-| `rate-limit.test.ts` | 10 | Rate limiter работа |
-| `validation.test.ts` | 34 | Zod схемы валидации |
-| `views.test.ts` | 6 | Кэш просмотров |
-| `actions.test.ts` | 28 | Server Actions |
-| `api-routes.test.ts` | 95 | REST API endpoints |
-| `api.test.ts` | 29 | Интеграционные тесты API |
-| `cleanup.test.ts` | 3 | Очистка пользователей |
-| `messenger.test.ts` | 32 | Функции мессенджера |
-| **Итого** | **248** | |
+| Файл тестов | Что тестирует |
+|-------------|---------------|
+| `encryption.test.ts` | AES шифрование/дешифрование |
+| `rate-limit.test.ts` | Rate limiter работа |
+| `validation.test.ts` | Zod схемы валидации |
+| `views.test.ts` | Кэш просмотров |
+| `actions.test.ts` | Server Actions |
+| `api-routes.test.ts` | REST API endpoints |
+| `api.test.ts` | Интеграционные тесты API |
+| `cleanup.test.ts` | Очистка пользователей |
+| `messenger.test.ts` | Функции мессенджера |
+| **Итого** | **9 тестовых файлов** |
 
 ---
 
@@ -468,12 +468,7 @@ UPSTASH_REDIS_REST_TOKEN=""
 
 | # | Файл | Проблема | Статус |
 |---|------|----------|--------|
-| 1 | `src/app/api/hashtags/trending/route.ts` | `orderBy: { posts: { _count: 'desc' } }` работает, но в тестах не мокается findMany → stderr | Нужна фиксация в тестах |
-| 2 | `src/components/messenger/ChatView.tsx:732` | `rowProps={{}}` - устаревший API для react-window v2 | Нужно убрать |
-| 3 | `src/components/messenger/ChatView.tsx:733` | `listRef={listRef}` - в react-window v2 используется `ref`, не `listRef` | Нужно исправить |
-| 4 | `src/components/messenger/ChatView.tsx:732` | `onRowsRendered` принимает `{ overscanStartIndex, overscanStopIndex, visibleStartIndex, visibleStopIndex }`, не `startIndex/stopIndex` | Нужно исправить |
-| 5 | `src/components/messenger/ChatView.tsx:271` | `list.element` не существует в react-window API | Нужно использовать `scrollToItem` |
-| 6 | `src/lib/rate-limit.ts:7` | setInterval на уровне модуля - не очищается после тестов | Нужно добавить cleanup |
+| 1 | `src/lib/rate-limit.ts:7` | setInterval на уровне модуля - не очищается после тестов | Нужно добавить cleanup |
 
 ### 11.2 Проблемы производительности
 
@@ -488,7 +483,6 @@ UPSTASH_REDIS_REST_TOKEN=""
 | # | Файл | Рекомендация |
 |---|------|-------------|
 | 1 | `package.json` | Удалить дублирующиеся библиотеки: `bcrypt` и `bcryptjs` - достаточно одной |
-| 2 | `src/app/feed/page.tsx:35` | `feedTab` - useState с константой, можно заменить на обычную переменную |
-| 3 | `src/lib/socket-client.ts:134` | `getSocket()` возвращает `null` - функция не используется |
-| 4 | `src/app/api/socketio/route.ts` | Route handler только для health-check - Socket.IO работает через upgrade |
-| 5 | Во всех Route Handlers | Использовать `NextRequest` вместо `Request` для совместимости |
+| 2 | `src/lib/socket-client.ts:134` | `getSocket()` возвращает `null` - функция не используется |
+| 3 | `src/app/api/socketio/route.ts` | Route handler только для health-check - Socket.IO работает через upgrade |
+| 4 | Во всех Route Handlers | Использовать `NextRequest` вместо `Request` для совместимости |

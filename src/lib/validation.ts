@@ -77,6 +77,7 @@ export const sendMessageSchema = z.object({
   mediaType: z.enum(['image', 'video', 'file']).nullable().optional(),
   mediaName: z.string().nullable().optional(),
   forwardFromId: z.string().nullable().optional(),
+  tempId: z.string().nullable().optional(),
 });
 
 export const deleteMessageSchema = z.object({

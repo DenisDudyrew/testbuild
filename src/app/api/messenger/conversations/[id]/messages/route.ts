@@ -214,7 +214,7 @@ export async function POST(
       return NextResponse.json({ error: validation.error.issues[0]?.message || 'Validation error' }, { status: 400 });
     }
 
-    const { content, replyToId, mediaUrl, mediaType, mediaName, forwardFromId } = validation.data;
+    const { content, replyToId, mediaUrl, mediaType, mediaName, forwardFromId, tempId } = validation.data;
 
     if ((!content || !content.trim()) && !mediaUrl && !forwardFromId) {
       return NextResponse.json({ error: 'Content or media is required' }, { status: 400 });
@@ -293,6 +293,7 @@ export async function POST(
     // Расшифровываем содержимое перед отправкой клиенту
     const decryptedResponse = {
       ...message,
+      id: tempId || message.id, // Возвращаем tempId если передан для корректной замены optimistic UI
       content: (() => {
         try { return decrypt(message.content); } catch { return message.content; }
       })(),

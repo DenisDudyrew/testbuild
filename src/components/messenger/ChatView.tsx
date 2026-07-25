@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { ChevronLeft, Pin, Image as ImageIcon, X, Loader2, Grid3X3, ArrowDown, WifiOff } from "lucide-react";
-import { List, type RowComponentProps, type ListImperativeAPI } from "react-window";
+import { List, type ListChildComponentProps, type ListOnItemsRenderedProps, type ListOnScrollProps, type ListRef } from "react-window";
 import Avatar from "@/components/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
@@ -123,7 +123,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return items;
   }, [messages, conversation.lastReadAt, session?.user?.id]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<ListImperativeAPI | null>(null);
+  const listRef = useRef<ListRef | null>(null);
   const socketRef = useRef<ReturnType<typeof useSocket>>(null!);
   const lastPollRef = useRef(0);
   const isSendingRef = useRef(false);
@@ -136,18 +136,9 @@ export default function ChatView({ conversation, onBack }: Props) {
     onMessageNew: (message) => {
       setMessages((prev) => {
         if (prev.some(m => m.id === message.id)) return prev;
-        // Ищем оптимистичное сообщение по tempId, который содержится в message.id
-        // Сервер возвращает id вида "temp-{localIdCounter}" для optimistic-сообщений
-        // Если сервер вернул сообщение с id, начинающимся на temp-, заменяем по нему
-        const optimisticMatch = prev.find(m => m.id.startsWith('temp-') && m.senderId === message.senderId);
-        if (optimisticMatch) {
-          // Если id совпадает — просто заменяем, иначе ищем по content как fallback
-          const exactMatch = prev.find(m => m.id === message.id);
-          if (exactMatch) return prev.map(m => m.id === message.id ? message : m);
-          // Fallback: заменяем первое temp-сообщение от того же отправителя
-          return prev.map(m => m.id === optimisticMatch.id ? message : m);
-        }
-        return [...prev, message];
+        // Заменяем оптимистичное сообщение по точному совпадению tempId
+        // Сервер должен возвращать тот же tempId в ответе для корректной замены
+        return prev.map(m => m.id === message.id ? message : m);
       });
     },
     onTypingUpdate: (data) => {
@@ -230,12 +221,11 @@ export default function ChatView({ conversation, onBack }: Props) {
 
   // Infinite scroll — загрузка старых сообщений при прокрутке вверх
   const handleRowsRendered = useCallback(({
+    overscanStartIndex,
+    overscanStopIndex,
     startIndex,
     stopIndex,
-  }: {
-    startIndex: number;
-    stopIndex: number;
-  }) => {
+  }: ListOnItemsRenderedProps) => {
     const isNearBottom = stopIndex >= listItems.length - 3;
     setShowScrollBtn(!isNearBottom);
 
@@ -413,6 +403,7 @@ export default function ChatView({ conversation, onBack }: Props) {
           mediaUrl: media?.url || null,
           mediaType: media?.type || null,
           mediaName: media?.name || null,
+          tempId, // Отправляем tempId для корректной замены optimistic UI
         }),
       });
 
@@ -515,7 +506,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return height;
   }, [listItems]);
 
-  const Row = useCallback(({ index, style }: RowComponentProps) => {
+  const Row = useCallback(({ index, style }: ListChildComponentProps) => {
     const item = listItems[index];
     if (!item) return null;
 
@@ -725,13 +716,12 @@ export default function ChatView({ conversation, onBack }: Props) {
 
               {listHeight > 0 && (
                 <List
-                  rowProps={{}}
+                  ref={listRef}
                   style={{ height: listHeight, width: '100%' }}
-                  rowCount={listItems.length}
-                  rowHeight={estimateRowHeight}
-                  listRef={listRef}
-                  onRowsRendered={handleRowsRendered}
-                  rowComponent={Row}
+                  itemCount={listItems.length}
+                  itemSize={estimateRowHeight}
+                  onItemsRendered={handleRowsRendered}
+                  children={Row}
                 />
               )}
             
