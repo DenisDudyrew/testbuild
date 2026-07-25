@@ -11,10 +11,12 @@ export async function GET() {
       take: 10,
     });
 
-    return NextResponse.json(hashtags.map(h => ({
+    const result = (hashtags || []).map(h => ({
       name: h.name,
-      count: h._count.posts,
-    })));
+      count: h._count?.posts || 0,
+    }));
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching trending hashtags:', error);
     return NextResponse.json({ error: 'Failed to fetch trending hashtags' }, { status: 500 });

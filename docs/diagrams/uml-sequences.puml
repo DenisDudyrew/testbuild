@@ -1,0 +1,573 @@
+@startuml
+title ZEPHYR — UML Sequence Diagrams
+' Глобальные настройки
+skinparam defaultFontName Courier
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+hide footbox
+
+' ============================================
+' 1. Регистрация пользователя
+' ============================================
+@startuml
+title 1. Регистрация пользователя
+
+actor "Пользователь" as User
+participant "Next.js Client" as Client
+participant "Route Handler" as API
+participant "Next.js Server" as Server
+database "PostgreSQL" as DB
+participant "Maildev/SMTP" as SMTP
+
+User -> Client: Ввод email
+Client -> API: POST /api/auth/send-verification
+API -> Server: Валидация email
+Server -> Server: cleanupPendingUsers()
+Server -> DB: UPSERT user (emailHash, verificationCode, expiresAt)
+DB --> Server: user created
+Server -> SMTP: sendVerificationCode(email, code)
+
+alt SMTP недоступен (localhost)
+  SMTP -> Console: 🔐 Код подтверждения: {code}
+else SMTP доступен
+  SMTP -> User: Email с кодом
+end
+
+API --> Client: { success: true }
+
+User -> Client: Ввод кода
+Client -> API: POST /api/auth/confirm-email { email, code }
+Server -> DB: FIND user by emailHash
+DB --> Server: user data
+Server -> Server: Проверка: code совпадает, не истёк
+Server -> DB: UPDATE (emailVerified = true)
+DB --> Server: confirmed
+API --> Client: { success: true }
+
+User -> Client: Ввод username + password
+Client -> API: POST /api/register
+API -> Server: Rate limit check (10/мин)
+Server -> Server: Валидация (Zod)
+Server -> DB: CHECK emailVerified
+DB --> Server: verified
+Server -> DB: CHECK username уникальность
+DB --> Server: unique
+Server -> Server: bcrypt.hash(password, 10)
+Server -> DB: UPDATE user (username, password)
+DB --> Server: updated
+API --> Client: 201 { id, username, avatar }
+
+@enduml
+
+' ============================================
+' 2. Аутентификация (Login/JWT)
+' ============================================
+@startuml
+title 2. Аутентификация (Login/JWT)
+
+actor "Пользователь" as User
+participant "Next.js Client" as Client
+participant "NextAuth v5" as NextAuth
+database "PostgreSQL" as DB
+
+User -> Client: Ввод логина/пароля
+Client -> NextAuth: signIn("credentials", { username, password })
+NextAuth -> DB: prisma.user.findUnique({ where: { username } })
+DB --> NextAuth: user { id, username, password, role, avatar }
+NextAuth -> NextAuth: bcrypt.compare(password, user.password)
+
+alt Неверный пароль
+  NextAuth --> Client: error: "CredentialsSignin"
+else Верный пароль
+  NextAuth -> NextAuth: JWT callback — загрузка role, avatar
+  NextAuth -> NextAuth: Session callback — отображение JWT в сессию
+  NextAuth --> Client: session { user: { id, name, role, image } }
+  note right of Client: Сессия сохранена в httpOnly cookie
+end
+
+@enduml
+
+' ============================================
+' 3. Создание поста с хэштегами
+' ============================================
+@startuml
+title 3. Создание поста с хэштегами
+
+actor "Пользователь" as User
+participant "React Client" as Client
+participant "Server Action" as Action
+database "PostgreSQL" as DB
+
+User -> Client: Ввод текста "#привет #zephyr"
+Client -> Client: Парсинг хэштегов: /#[\\wа-яё]+/gi
+Client --> Action: createPost(formData)
+
+Action -> Action: auth() — проверка сессии
+Action -> Action: validate(createPostSchema, data)
+Action -> Action: Проверка: content || mediaUrl
+
+note right of Action: Для каждого уникального хэштега
+loop each hashtag
+  Action -> DB: prisma.hashtag.upsert({ where: { name }, create: { name } })
+  DB --> Action: hashtag { id, name }
+end
+
+Action -> DB: prisma.post.create({ data: { userId, content, hashtags }, include: { user } })
+DB --> Action: post with user
+
+Action -> Action: revalidatePath("/feed")
+Action --> Client: { post }
+
+Client -> Client: Обновление ленты
+
+@enduml
+
+' ============================================
+' 4. Лайк поста + уведомление
+' ============================================
+@startuml
+title 4. Лайк поста + уведомление
+
+actor "Пользователь A" as UserA
+participant "React Client" as Client
+participant "Route Handler" as API
+database "PostgreSQL" as DB
+
+UserA -> Client: Нажатие ♥ (лайк)
+Client -> API: POST /api/posts/{postId}/like
+API -> API: auth() — проверка сессии
+
+API -> DB: prisma.like.findUnique({ where: { userId_postId } })
+DB --> API: existing like or null
+
+alt Лайк уже существует
+  API -> DB: prisma.like.delete({ where: { id } })
+  DB --> API: deleted
+  API --> Client: { liked: false }
+else Новый лайк
+  API -> DB: prisma.like.create({ data: { userId, postId } })
+  DB --> API: like { id }
+
+  API -> DB: prisma.post.findUnique({ where: { id: postId } })
+  DB --> API: post { userId: authorId }
+
+  alt Лайкнувший ≠ автор поста
+    API -> DB: prisma.notification.create({ data: { userId: authorId, type: "like", actorId, postId, likeId } })
+    DB --> API: notification created
+  end
+
+  API --> Client: { liked: true, _count: { likes: N } }
+end
+
+Client -> Client: toggleLikedPosts(postId)
+Client -> Client: updateFeedPostsCount(postId, likes+1)
+
+@enduml
+
+' ============================================
+' 5. Комментарий + уведомление
+' ============================================
+@startuml
+title 5. Комментарий + уведомление
+
+actor "Пользователь A" as UserA
+participant "React Client" as Client
+participant "Route Handler" as API
+database "PostgreSQL" as DB
+
+UserA -> Client: Нажатие "Ответить"
+Client -> Client: toggleExpandedComments(postId)
+Client -> API: GET /api/posts/{postId}/comments
+API -> DB: prisma.comment.findMany({ where: { postId }, include: { user, replies, likes } })
+DB --> API: comments[]
+API --> Client: comments[]
+
+UserA -> Client: Ввод текста комментария
+Client -> API: POST /api/posts/{postId}/comments { content, parentId? }
+API -> API: auth(), validate(createCommentSchema)
+API -> DB: prisma.comment.create({ data: { userId, postId, content, parentId }, include: { user } })
+DB --> API: comment { id, content, user }
+
+API -> DB: prisma.post.findUnique({ where: { id: postId } })
+DB --> API: post { userId: authorId }
+
+alt Комментатор ≠ автор поста
+  API -> DB: prisma.notification.create({ data: { userId: authorId, type: "comment", actorId, postId, commentId } })
+end
+
+API --> Client: 201 { comment }
+Client -> Client: addComment(postId, comment)
+Client -> Client: updatePostCount(postId, comments+1)
+
+@enduml
+
+' ============================================
+' 6. Подписка на пользователя
+' ============================================
+@startuml
+title 6. Подписка на пользователя
+
+actor "Пользователь A" as UserA
+actor "Пользователь B" as UserB
+participant "React Client" as Client
+participant "Server Action" as Action
+database "PostgreSQL" as DB
+
+UserA -> Client: Нажатие "Подписаться" на UserB
+Client -> Action: toggleFollow(userBId)
+Action -> Action: auth() — проверка сессии
+Action -> Action: Проверка: userId !== targetUserId
+
+Action -> DB: prisma.follow.findUnique({ where: { followerId_followingId } })
+DB --> Action: existing follow or null
+
+alt Уже подписан
+  Action -> DB: prisma.follow.delete({ where: { id } })
+  DB --> Action: deleted
+  Action --> Client: { followed: false }
+  Client -> Client: Обновление UI — кнопка "Подписаться"
+else Не подписан
+  Action -> DB: prisma.follow.create({ data: { followerId, followingId } })
+  DB --> Action: created
+  Action --> Client: { followed: true }
+  Client -> Client: Обновление UI — кнопка "Отписаться"
+end
+
+Action -> Action: revalidatePath("/profile/{userId}")
+
+@enduml
+
+' ============================================
+' 7. Отправка сообщения (Optimistic UI + Socket.IO)
+' ============================================
+@startuml
+title 7. Отправка сообщения (Optimistic UI + Socket.IO)
+
+actor "Пользователь A" as UserA
+actor "Пользователь B" as UserB
+participant "Client A" as ClientA
+participant "Socket.IO\nClient A" as SockA
+participant "Socket.IO\nServer" as Server
+participant "REST API" as API
+database "PostgreSQL" as DB
+participant "Client B" as ClientB
+participant "Socket.IO\nClient B" as SockB
+
+UserA -> ClientA: Написание сообщения + Enter
+
+ClientA -> ClientA: localIdCounter++
+ClientA -> ClientA: Создание temp-сообщения { id: "temp-N", content, senderId }
+ClientA -> ClientA: Оптимистичное добавление в список
+
+group Параллельно
+  ' HTTP запрос
+  ClientA -> API: POST /api/messenger/conversations/{id}/messages
+  API -> API: auth() — проверка сессии
+  API -> API: validate(sendMessageSchema)
+  API -> API: encrypt(content) → "iv:tag:ciphertext"
+  API -> DB: prisma.message.create()
+  DB --> API: message { id, createdAt, ... }
+  API -> API: decrypt(content) → plaintext для ответа
+  API --> ClientA: { id, content, createdAt, sender, ... }
+  ClientA -> ClientA: Замена temp-message на реальный
+
+  ' Socket.IO broadcast
+  ClientA -> SockA: message:send({ conversationId, message })
+  SockA -> Server: Проверка: senderId === socket.userId
+  Server -> Server: Rate limit: 30 msgs/min
+  Server -> SockB: broadcast emit("message:new", message)
+  Server -> SockB: broadcast emit("conversation:update", { conversationId, lastMessage })
+  SockB --> ClientB: Обновление UI — новое сообщение
+
+  ' Fallback polling
+  ClientB -> API: GET /api/messenger/conversations/{id}/messages?limit=50
+  API --> ClientB: messages[]
+  ClientB -> ClientB: Синхронизация при отсутствии Socket.IO
+end
+
+@enduml
+
+' ============================================
+' 8. Статус "печатает" (Typing Indicator)
+' ============================================
+@startuml
+title 8. Статус "печатает" (Typing Indicator)
+
+actor "Пользователь A" as UserA
+actor "Пользователь B" as UserB
+participant "Client A" as ClientA
+participant "Socket A" as SockA
+participant "Socket.IO Server" as Server
+participant "Socket B" as SockB
+participant "Client B" as ClientB
+
+UserA -> ClientA: Начало ввода (onChange)
+ClientA -> ClientA: debounce 500ms
+
+ClientA -> SockA: typing:start({ conversationId, userId, username })
+SockA -> Server: Проверка: userId === socket.data.userId
+Server -> Server: Rate limit: 60 typing events/min
+
+Server -> Server: Сохранение таймаута (5 сек)
+Server -> Server: broadcastTyping()
+Server -> SockB: emit("typing:update", { conversationId, typing: [{ id, username }] })
+SockB --> ClientB: Показ "UserA печатает..."
+
+alt UserA прекратил ввод (таймаут 5 сек)
+  Server -> Server: setTimeout → convTyping.delete(userId)
+  Server -> Server: broadcastTyping()
+  Server -> SockB: emit("typing:update", { conversationId, typing: [] })
+  SockB --> ClientB: Скрытие индикатора
+else UserA отправил сообщение
+  UserA -> ClientA: Send message
+  ClientA -> SockA: typing:stop({ conversationId })
+  SockA -> Server: clearTypingForSocket()
+  Server -> SockB: emit("typing:update", { conversationId, typing: [] })
+  SockB --> ClientB: Скрытие индикатора
+end
+
+@enduml
+
+' ============================================
+' 9. Онлайн-статус
+' ============================================
+@startuml
+title 9. Онлайн-статус
+
+actor "Пользователь A" as UserA
+actor "Пользователь B" as UserB
+participant "Client A" as ClientA
+participant "Socket A" as SockA
+participant "Socket.IO Server" as Server
+participant "Socket B" as SockB
+participant "Client B" as ClientB
+
+UserA -> ClientA: Открытие приложения
+ClientA -> ClientA: useSocket(userId) — создание соединения
+ClientA -> SockA: connect
+SockA -> Server: connection established
+
+ClientA -> SockA: register(userId)
+SockA -> Server: userSockets.set(userId, socketId)
+Server -> Server: socket.join("user:{userId}")
+
+loop each 30 seconds
+  ClientA -> SockA: online:heartbeat(userId)
+  SockA -> Server: Проверка: userId === socket.data.userId
+  Server -> SockB: broadcast emit("online:update", { userId, online: true })
+  SockB --> ClientB: Показ зелёного кружка
+end
+
+UserA -> ClientA: Закрытие вкладки / отключение
+SockA -[#red]> Server: disconnect
+Server -> Server: userSockets.get(userId).delete(socketId)
+
+alt Больше нет активных сокетов для userId
+  Server -> Server: userSockets.delete(userId)
+  Server -> SockB: broadcast emit("online:update", { userId, online: false })
+  SockB --> ClientB: Скрытие зелёного кружка
+end
+
+@enduml
+
+' ============================================
+' 10. Реакция на сообщение
+' ============================================
+@startuml
+title 10. Реакция на сообщение
+
+actor "Пользователь A" as UserA
+participant "Client A" as ClientA
+participant "REST API" as API
+database "PostgreSQL" as DB
+
+UserA -> ClientA: Клик на сообщении → выбор эмодзи "❤️"
+ClientA -> API: POST /api/messenger/messages/{messageId}/reactions { emoji: "❤️" }
+API -> API: auth() — проверка сессии
+API -> DB: prisma.messageReaction.findUnique({ where: { messageId_userId_emoji } })
+DB --> API: existing reaction or null
+
+alt Реакция уже есть (анреакт)
+  API -> DB: prisma.messageReaction.delete({ where: { id } })
+  DB --> API: deleted
+  API --> ClientA: { action: "removed" }
+else Новая реакция
+  API -> DB: prisma.messageReaction.create({ data: { messageId, userId, emoji } })
+  DB --> API: reaction { id }
+  API --> ClientA: { action: "added" }
+end
+
+ClientA -> ClientA: toggleReaction(messageId, emoji, action)
+
+@enduml
+
+' ============================================
+' 11. Закрепление сообщения (Pin)
+' ============================================
+@startuml
+title 11. Закрепление сообщения (Pin)
+
+actor "Пользователь A" as UserA
+participant "Client A" as ClientA
+participant "REST API" as API
+database "PostgreSQL" as DB
+
+UserA -> ClientA: Меню → "Закрепить"
+ClientA -> API: POST /api/messenger/conversations/{id}/pin { messageId }
+API -> API: auth() — проверка сессии
+
+API -> DB: prisma.pinnedMessage.findUnique({ where: { conversationId_messageId } })
+DB --> API: existing pinned or null
+
+alt Уже закреплено (открепить)
+  API -> DB: prisma.pinnedMessage.delete({ where: { id } })
+  API --> ClientA: { pinned: false }
+else Закрепить
+  API -> DB: prisma.pinnedMessage.create({ data: { conversationId, messageId, pinnedById: userId } })
+  DB --> API: pinned
+  API --> ClientA: { pinned: true }
+end
+
+ClientA -> ClientA: togglePinnedMessage(messageId)
+ClientA -> ClientA: Обновление баннера закреплённых
+
+@enduml
+
+' ============================================
+' 12. Админ-панель: управление пользователями
+' ============================================
+@startuml
+title 12. Админ-панель: управление пользователями
+
+actor "Администратор" as Admin
+participant "Admin Panel" as Client
+participant "Route Handler" as API
+database "PostgreSQL" as DB
+
+Admin -> Client: Открытие /admin
+Client -> API: GET /api/admin/users
+API -> API: auth() — проверка сессии
+API -> API: Проверка роли: user.role === "admin"
+
+alt Не авторизован
+  API --> Client: 401
+else Не админ
+  API --> Client: 403
+else Админ
+  API -> DB: prisma.user.findMany({ select: { id, username, role, emailEncrypted, createdAt } })
+  DB --> API: users[]
+  API -> API: decrypt(emailEncrypted) для каждого
+  API --> Client: users[] с расшифрованными email
+end
+
+Admin -> Client: Редактирование пользователя
+Client -> API: PUT /api/admin/users/{id} { username?, role? }
+API -> API: auth(), role check
+API -> API: validate(updateUserSchema)
+API -> DB: prisma.user.update({ where: { id }, data: { username?, role? } })
+DB --> API: updated
+API --> Client: { success: true }
+
+@enduml
+
+' ============================================
+' 13. Загрузка и просмотр изображений
+' ============================================
+@startuml
+title 13. Загрузка и просмотр изображений
+
+actor "Пользователь" as User
+participant "React Client" as Client
+participant "Route Handler" as API
+participant "Файловая система" as Disk
+
+User -> Client: Выбор файла (drag-n-drop / клик)
+Client -> Client: FormData { file }
+Client -> API: POST /api/upload
+API -> API: Проверка типа файла (image/*, video/*)
+API -> API: Генерация уникального имени
+API -> Disk: fs.writeFile("/uploads/{filename}", buffer)
+Disk --> API: saved
+API --> Client: { url: "/uploads/{filename}", type: "image/jpeg" }
+
+User -> Client: Создание поста с изображением
+Client -> Client: postForm { content, mediaUrl }
+
+note right of Client: Отображение
+Client -> API: GET /uploads/{filename}
+API -> Disk: fs.readFile / stream
+Disk --> API: file buffer
+API --> Client: image/png (Content-Type)
+Client -> Client: render <img src="/uploads/{filename}" />
+
+@enduml
+
+' ============================================
+' 14. Release Notes (заметки обновлений)
+' ============================================
+@startuml
+title 14. Release Notes
+
+actor "Администратор" as Admin
+actor "Пользователь" as User
+participant "React Client" as Client
+participant "Route Handler" as API
+database "PostgreSQL" as DB
+
+Admin -> Client: Создание release note
+Client -> API: POST /api/admin/release-notes { title, content }
+API -> API: auth(), role === "admin"
+API -> API: validate(releaseNoteSchema)
+API -> DB: prisma.releaseNote.create({ data: { title, content } })
+DB --> API: releaseNote { id, title, content, createdAt }
+API --> Client: 201 { releaseNote }
+
+User -> Client: Открытие /updates
+Client -> API: GET /api/release-notes
+API -> DB: prisma.releaseNote.findMany({ orderBy: { createdAt: "desc" } })
+DB --> API: releaseNotes[]
+API --> Client: releaseNotes[]
+
+Admin -> Client: Редактирование
+Client -> API: PUT /api/admin/release-notes/{id} { title, content }
+API -> DB: prisma.releaseNote.update({ where: { id }, data: { title, content } })
+DB --> API: updated
+API --> Client: { releaseNote }
+
+@enduml
+
+' ============================================
+' 15. Блокировка пользователя (мессенджер)
+' ============================================
+@startuml
+title 15. Блокировка пользователя (мессенджер)
+
+actor "Пользователь A" as UserA
+participant "React Client" as Client
+participant "Route Handler" as API
+database "PostgreSQL" as DB
+
+UserA -> Client: Меню пользователя → "Заблокировать"
+Client -> API: POST /api/messenger/block { userId: "userB-id" }
+API -> API: auth() — проверка сессии
+API -> API: validate(blockUserSchema)
+
+API -> DB: prisma.userBlock.findUnique({ where: { blockerId_blockedId } })
+DB --> API: existing block or null
+
+alt Уже заблокирован (разблокировать)
+  API -> DB: prisma.userBlock.delete({ where: { id } })
+  DB --> API: deleted
+  API --> Client: { blocked: false }
+else Заблокировать
+  API -> DB: prisma.userBlock.create({ data: { blockerId, blockedId } })
+  DB --> API: block created
+  API --> Client: { blocked: true }
+end
+
+Client -> Client: Обновление UI
+note right of Client: Заблокированный пользователь:\n- не видит сообщения от блокирующего\n- не может писать в общий чат
+
+@enduml

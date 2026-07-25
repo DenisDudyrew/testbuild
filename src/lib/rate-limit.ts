@@ -3,15 +3,34 @@
 
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
-// Очистка старых записей каждые 60 секунд
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of requestCounts.entries()) {
-    if (value.resetTime < now) {
-      requestCounts.delete(key);
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Инициализировать очистку старых записей (вызывается при старте приложения).
+ * Возвращает функцию для остановки интервала (для тестов).
+ */
+export function initRateLimitCleanup(): () => void {
+  if (cleanupInterval) clearInterval(cleanupInterval);
+  cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of requestCounts.entries()) {
+      if (value.resetTime < now) {
+        requestCounts.delete(key);
+      }
     }
-  }
-}, 60000);
+  }, 60000);
+  return () => {
+    if (cleanupInterval) {
+      clearInterval(cleanupInterval);
+      cleanupInterval = null;
+    }
+  };
+}
+
+// Авто-инициализация при импорте (не в тестовом окружении)
+if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'test') {
+  initRateLimitCleanup();
+}
 
 export interface RateLimitConfig {
   maxRequests: number;

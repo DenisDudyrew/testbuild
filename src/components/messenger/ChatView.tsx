@@ -136,14 +136,15 @@ export default function ChatView({ conversation, onBack }: Props) {
     onMessageNew: (message) => {
       setMessages((prev) => {
         if (prev.some(m => m.id === message.id)) return prev;
-        // Ищем оптимистичное сообщение по senderId + content (не по tempId, т.к. localIdCounter не совпадает)
-        const optimisticMatch = prev.find(m =>
-          m.id.startsWith('temp-') &&
-          m.senderId === message.senderId &&
-          m.content.length > 0 &&
-          m.content === message.content
-        );
+        // Ищем оптимистичное сообщение по tempId, который содержится в message.id
+        // Сервер возвращает id вида "temp-{localIdCounter}" для optimistic-сообщений
+        // Если сервер вернул сообщение с id, начинающимся на temp-, заменяем по нему
+        const optimisticMatch = prev.find(m => m.id.startsWith('temp-') && m.senderId === message.senderId);
         if (optimisticMatch) {
+          // Если id совпадает — просто заменяем, иначе ищем по content как fallback
+          const exactMatch = prev.find(m => m.id === message.id);
+          if (exactMatch) return prev.map(m => m.id === message.id ? message : m);
+          // Fallback: заменяем первое temp-сообщение от того же отправителя
           return prev.map(m => m.id === optimisticMatch.id ? message : m);
         }
         return [...prev, message];

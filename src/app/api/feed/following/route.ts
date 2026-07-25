@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { feedCache } from '@/lib/cache';
 
 // GET /api/feed/following - лента подписок (хронологическая)
 export async function GET(request: Request) {
@@ -14,17 +15,27 @@ export async function GET(request: Request) {
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '10'), 50);
     const skip = (page - 1) * limit;
+    const userId = session.user.id;
+
+    // Проверяем кэш
+    const cacheKey = `feed:following:${userId}:${page}:${limit}`;
+    const cached = feedCache().get(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
 
     // Собираем ID подписок
     const following = await prisma.follow.findMany({
-      where: { followerId: session.user.id },
+      where: { followerId: userId },
       select: { followingId: true },
     });
     const followingIds = following.map(f => f.followingId);
 
     // Если ни на кого не подписан — возвращаем пустой результат
     if (followingIds.length === 0) {
-      return NextResponse.json({ posts: [], total: 0, page, limit });
+      const emptyResult = { posts: [], total: 0, page, limit };
+      feedCache().set(cacheKey, emptyResult);
+      return NextResponse.json(emptyResult);
     }
 
     const [posts, total] = await Promise.all([
@@ -73,7 +84,9 @@ export async function GET(request: Request) {
       prisma.post.count({ where: { userId: { in: followingIds } } }),
     ]);
 
-    return NextResponse.json({ posts, total, page, limit });
+    const result = { posts, total, page, limit };
+    feedCache().set(cacheKey, result);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching following feed:', error);
     return NextResponse.json({ error: 'Failed to fetch feed' }, { status: 500 });

@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import PostForm from "@/components/PostForm";
 import PostCard from "@/components/PostCard";
 import RepostModal from "@/components/RepostModal";
+import TrendsPanel from "@/components/TrendsPanel";
 import { usePosts } from "@/lib/hooks/usePosts";
 import type { Post } from "@/types/post";
 
@@ -32,7 +33,7 @@ export default function FeedPage() {
 
 function FeedContent() {
   const { data: session } = useSession();
-  const [feedTab] = useState<FeedTab>('for-you');
+  const [feedTab, setFeedTab] = useState<FeedTab>('for-you');
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
   const [feedHasMore, setFeedHasMore] = useState(true);
   const [feedLoading, setFeedLoading] = useState(false);
@@ -90,11 +91,31 @@ function FeedContent() {
     }
   }, [session, feedTab, loadFeed]);
 
+  // Infinite scroll через IntersectionObserver
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   const handleLoadMore = useCallback(async () => {
     const nextPage = feedPage + 1;
     setFeedPage(nextPage);
     await loadFeed(nextPage, true);
   }, [feedPage, loadFeed]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !feedHasMore || feedLoading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && feedHasMore && !feedLoading) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [feedHasMore, feedLoading, handleLoadMore]);
 
   // Для нового поста — сбрасываем на страницу 1, чтобы новый пост был наверху
   const handlePostCreated = useCallback(() => {
@@ -226,74 +247,115 @@ function FeedContent() {
       <Sidebar />
 
       <div className="pl-60 max-md:pl-0">
-        <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6">
-          {/* Заголовок ленты */}
-          <h1 className="mb-6 text-xl font-bold text-zinc-900 dark:text-white animate-flyInLeft pl-12 sm:pl-0">Лента</h1>
+        <div className="mx-auto flex max-w-5xl gap-6 px-4 py-6">
+          <main className="min-w-0 flex-1 max-w-2xl">
+            {/* Заголовок ленты */}
+            <h1 className="mb-6 text-xl font-bold text-zinc-900 dark:text-white animate-flyInLeft pl-12 sm:pl-0">Лента</h1>
 
-          <PostForm onPostCreated={handlePostCreated} />
-
-          <div className="space-y-4">
-            {feedPosts.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pop">
-                {feedTab === 'following' ? 'Вы ни на кого не подписаны. Подпишитесь, чтобы видеть посты!' : 'Пока нет постов. Будь первым!'}
-              </div>
-            ) : (
-              <>
-                {feedPosts.map((post, index) => (
-                  <div key={post.id} style={{ animationDelay: `${index * 0.05}s` }}>
-                    <PostCard
-                      post={post}
-                      currentUserId={session?.user?.id}
-                      likedPosts={likedPosts}
-                      comments={comments}
-                      expandedComments={expandedComments}
-                      showAllComments={showAllComments}
-                      viewedPosts={viewedPosts}
-                      onLike={handleFeedLike}
-                      onToggleComments={handleToggleComments}
-                      onToggleShowAll={(id) => {
-                        const newSet = new Set(showAllComments);
-                        if (newSet.has(id)) newSet.delete(id);
-                        else newSet.add(id);
-                        setShowAllComments(newSet);
-                      }}
-                      onAddComment={handleAddComment}
-                    onDeletePost={handleDeletePost}
-                      onEditPost={(postId, content) => {
-                        updatePost(postId, { content });
-                      }}
-                      onRepost={setRepostPost}
-                      onBookmark={handleBookmark}
-                      bookmarkedPosts={bookmarkedPosts}
-                      onPin={handlePin}
-                      pinnedPostId={pinnedPostId}
-                      onVote={handleVote}
-                      setViewedPosts={setViewedPosts}
-                    />
-                  </div>
-                ))}
-                {feedHasMore && (
-                  <div className="flex justify-center py-4">
-                    <button
-                      onClick={handleLoadMore}
-                      disabled={feedLoading}
-                      className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-6 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:shadow-md disabled:opacity-50"
-                    >
-                      {feedLoading ? (
-                        <span className="flex items-center gap-2">
-                          <div className="size-4 animate-spin rounded-full border-2 border-zinc-200 border-t-indigo-600" />
-                          Загрузка...
-                        </span>
-                      ) : (
-                        "Загрузить ещё"
-                      )}
-                    </button>
-                  </div>
+            {/* Табы For You / Following — как в Twitter/X */}
+            <div className="mb-4 flex border-b border-zinc-200 dark:border-zinc-800">
+              <button
+                onClick={() => setFeedTab('for-you')}
+                className={`relative flex-1 px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  feedTab === 'for-you'
+                    ? 'text-indigo-600 dark:text-indigo-400'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                For You
+                {feedTab === 'for-you' && (
+                  <span className="absolute bottom-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
                 )}
-              </>
-            )}
-          </div>
-        </main>
+              </button>
+              <button
+                onClick={() => setFeedTab('following')}
+                className={`relative flex-1 px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  feedTab === 'following'
+                    ? 'text-indigo-600 dark:text-indigo-400'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                Following
+                {feedTab === 'following' && (
+                  <span className="absolute bottom-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+                )}
+              </button>
+            </div>
+
+            <PostForm onPostCreated={handlePostCreated} />
+
+            <div className="space-y-4">
+              {feedPosts.length === 0 ? (
+                <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pop">
+                  {feedTab === 'following' ? 'Вы ни на кого не подписаны. Подпишитесь, чтобы видеть посты!' : 'Пока нет постов. Будь первым!'}
+                </div>
+              ) : (
+                <>
+                  {feedPosts.map((post, index) => (
+                    <div key={post.id} style={{ animationDelay: `${index * 0.05}s` }}>
+                      <PostCard
+                        post={post}
+                        currentUserId={session?.user?.id}
+                        likedPosts={likedPosts}
+                        comments={comments}
+                        expandedComments={expandedComments}
+                        showAllComments={showAllComments}
+                        viewedPosts={viewedPosts}
+                        onLike={handleFeedLike}
+                        onToggleComments={handleToggleComments}
+                        onToggleShowAll={(id) => {
+                          const newSet = new Set(showAllComments);
+                          if (newSet.has(id)) newSet.delete(id);
+                          else newSet.add(id);
+                          setShowAllComments(newSet);
+                        }}
+                        onAddComment={handleAddComment}
+                      onDeletePost={handleDeletePost}
+                        onEditPost={(postId, content) => {
+                          updatePost(postId, { content });
+                        }}
+                        onRepost={setRepostPost}
+                        onBookmark={handleBookmark}
+                        bookmarkedPosts={bookmarkedPosts}
+                        onPin={handlePin}
+                        pinnedPostId={pinnedPostId}
+                        onVote={handleVote}
+                        setViewedPosts={setViewedPosts}
+                      />
+                    </div>
+                  ))}
+                  {/* Sentinel для IntersectionObserver (infinite scroll) */}
+                  <div ref={sentinelRef} className="h-4" />
+                  {feedHasMore && (
+                    <div className="flex justify-center py-4">
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={feedLoading}
+                        className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-6 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:shadow-md disabled:opacity-50"
+                      >
+                        {feedLoading ? (
+                          <span className="flex items-center gap-2">
+                            <div className="size-4 animate-spin rounded-full border-2 border-zinc-200 border-t-indigo-600" />
+                            Загрузка...
+                          </span>
+                        ) : (
+                          "Загрузить ещё"
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </main>
+
+          {/* Правая колонка — тренды */}
+          <aside className="hidden min-[1600px]:block w-72 shrink-0">
+            <div className="sticky top-6 space-y-4">
+              <TrendsPanel />
+            </div>
+          </aside>
+        </div>
       </div>
 
       {repostPost && (
