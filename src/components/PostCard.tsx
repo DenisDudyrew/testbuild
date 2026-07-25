@@ -301,7 +301,7 @@ export default function PostCard({
             <button onClick={() => onLike(post.id)}
               className={`flex items-center gap-1.5 text-xs transition-all duration-200 ${likedPosts.has(post.id) ? "text-rose-500 scale-110" : "text-zinc-400 dark:text-zinc-500 hover:text-rose-500 hover:scale-110"}`}>
               <Heart className={`size-4 transition-all duration-200 ${likedPosts.has(post.id) ? "fill-current animate-like" : ""}`} />
-              {post.likes.length}
+              {post._count?.likes ?? 0}
             </button>
             <button onClick={() => onToggleComments(post.id)}
               className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 transition-all duration-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:scale-110">

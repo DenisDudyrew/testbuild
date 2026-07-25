@@ -162,6 +162,48 @@ function FeedContent() {
     }
   };
 
+  // Обёртка handleLike, которая также обновляет feedPosts
+  const handleFeedLike = useCallback(async (postId: string) => {
+    try {
+      const response = await fetch(`/api/posts/${postId}/like`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Обновляем likedPosts (анимация сердечка)
+        const likedSet = new Set(likedPosts);
+        if (data.liked) {
+          likedSet.add(postId);
+        } else {
+          likedSet.delete(postId);
+        }
+        // Используем handleLike из хука для синхронизации всех состояний
+        await handleLike(postId);
+        
+        // Обновляем feedPosts, чтобы счётчик лайков отображался сразу
+        setFeedPosts((prev) =>
+          prev.map((p) => {
+            if (p.id !== postId) return p;
+            const currentCount = p._count ?? { likes: 0, comments: 0, reposts: 0 };
+            return {
+              ...p,
+              likes: data.liked
+                ? [...p.likes, { userId: session?.user?.id || "" }]
+                : p.likes.filter((l) => l.userId !== session?.user?.id),
+              _count: {
+                ...currentCount,
+                likes: data._count?.likes ?? (data.liked ? currentCount.likes + 1 : Math.max(0, currentCount.likes - 1)),
+              },
+            };
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Failed to toggle like:", error);
+    }
+  }, [handleLike, likedPosts, session]);
+
   const handleDeletePost = async (postId: string) => {
     try {
       await fetch(`/api/posts/${postId}`, { method: "DELETE" });
@@ -207,7 +249,7 @@ function FeedContent() {
                       expandedComments={expandedComments}
                       showAllComments={showAllComments}
                       viewedPosts={viewedPosts}
-                      onLike={handleLike}
+                      onLike={handleFeedLike}
                       onToggleComments={handleToggleComments}
                       onToggleShowAll={(id) => {
                         const newSet = new Set(showAllComments);

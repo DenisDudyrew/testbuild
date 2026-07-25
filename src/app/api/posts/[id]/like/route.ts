@@ -36,7 +36,13 @@ export async function POST(
       await prisma.like.delete({
         where: { id: existingLike.id },
       });
-      return NextResponse.json({ liked: false });
+
+      // Get updated like count
+      const likeCount = await prisma.like.count({
+        where: { postId: id },
+      });
+
+      return NextResponse.json({ liked: false, _count: { likes: likeCount } });
     } else {
       const like = await prisma.like.create({
         data: { userId: session.user.id, postId: id },
@@ -54,7 +60,12 @@ export async function POST(
         });
       }
 
-      return NextResponse.json({ liked: true });
+      // Get updated like count
+      const likeCount = await prisma.like.count({
+        where: { postId: id },
+      });
+
+      return NextResponse.json({ liked: true, _count: { likes: likeCount } });
     }
   } catch (error) {
     console.error('Error toggling like:', error);

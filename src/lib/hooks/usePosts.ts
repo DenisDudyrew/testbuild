@@ -123,6 +123,8 @@ export function usePosts() {
         });
         if (response.ok) {
           const data = await response.json();
+          
+          // Update likedPosts set for the heart animation toggle
           setLikedPosts((prev) => {
             const newSet = new Set(prev);
             if (data.liked) {
@@ -132,18 +134,23 @@ export function usePosts() {
             }
             return newSet;
           });
-          // Обновляем счётчик лайков без перезагрузки всех постов
+          
+          // Обновляем счётчик лайков: используем точное значение от API
           setPosts((prev) =>
-            prev.map((p) =>
-              p.id === postId
-                ? {
-                    ...p,
-                    likes: data.liked
-                      ? [...p.likes, { userId: session?.user?.id || "" }]
-                      : p.likes.filter((l) => l.userId !== session?.user?.id),
-                  }
-                : p
-            )
+            prev.map((p) => {
+              if (p.id !== postId) return p;
+              const currentCount = p._count ?? { likes: 0, comments: 0, reposts: 0 };
+              return {
+                ...p,
+                likes: data.liked
+                  ? [...p.likes, { userId: session?.user?.id || "" }]
+                  : p.likes.filter((l) => l.userId !== session?.user?.id),
+                _count: {
+                  ...currentCount,
+                  likes: data._count?.likes ?? (data.liked ? currentCount.likes + 1 : Math.max(0, currentCount.likes - 1)),
+                },
+              };
+            })
           );
         }
       } catch (error) {
