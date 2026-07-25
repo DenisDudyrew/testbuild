@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { X, Repeat2, MessageCircle, Heart } from "lucide-react";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
@@ -110,7 +111,7 @@ export default function RepostModal({ post, onClose, onReposted }: RepostModalPr
             {post.mediaUrl && (
               <div className="mt-2 overflow-hidden rounded-lg">
                 {post.mediaType === "image" ? (
-                  <img src={post.mediaUrl} alt="Media" className="w-full max-h-48 object-contain" />
+                  <Image src={post.mediaUrl} alt="Media" width={400} height={300} className="w-full max-h-48 object-contain" />
                 ) : (
                   <video src={post.mediaUrl} controls className="w-full max-h-48 object-contain" />
                 )}

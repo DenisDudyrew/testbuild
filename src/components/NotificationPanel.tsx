@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { Heart, MessageCircle, Repeat2, X, Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -172,9 +173,11 @@ export default function NotificationPanel({
               {/* Аватар актора */}
               <div className="relative shrink-0">
                 {notification.actor.avatar ? (
-                  <img
+                  <Image
                     src={notification.actor.avatar}
                     alt={notification.actor.username}
+                    width={36}
+                    height={36}
                     className="size-9 rounded-full object-cover"
                   />
                 ) : (

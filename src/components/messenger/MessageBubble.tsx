@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import { CheckCheck, Trash2, Reply, FileText, Pencil, SmilePlus, Pin, Forward, Info, Copy, X } from "lucide-react";
 import Avatar from "@/components/Avatar";
 
@@ -182,11 +183,12 @@ export default function MessageBubble({ message, isOwn, onDelete, onReply, onRea
           {/* Media attachment */}
           {message.mediaUrl && message.mediaType === "image" && (
             <div className="mb-2 -mx-4 -mt-3 overflow-hidden rounded-t-[18px] bg-zinc-100 dark:bg-zinc-800">
-              <img
+              <Image
                 src={message.mediaUrl}
-                alt="\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435"
+                alt="Изображение"
+                width={400}
+                height={300}
                 className="w-full max-h-64 object-contain"
-                loading="lazy"
               />
             </div>
           )}

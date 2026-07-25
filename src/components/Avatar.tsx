@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo } from "react";
 
 const GRADIENTS = [
@@ -44,9 +45,11 @@ export default function Avatar({ id, src, name, size = 10, className = "", onCli
 
   if (src) {
     return (
-      <img
+      <Image
         src={src}
         alt={name}
+        width={size * 4}
+        height={size * 4}
         className={`${sizeClass} shrink-0 object-cover ${roundClass} ring-2 ring-zinc-200 dark:ring-zinc-700 transition-all duration-200 hover:ring-indigo-400 ${onClick ? "cursor-pointer" : ""} ${className}`}
         onClick={onClick}
       />

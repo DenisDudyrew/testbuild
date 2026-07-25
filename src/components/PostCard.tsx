@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Image from "next/image";
 import { Heart, MessageCircle, Repeat2, Edit2, X, Trash2, MessageSquareMore, Bookmark, Pin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -202,7 +203,7 @@ export default function PostCard({
           {post.mediaUrl && (
             <div className="mt-3 overflow-hidden rounded-xl bg-black/5 transition-all duration-300 hover:shadow-lg">
               {post.mediaType === "image" ? (
-                <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[80vh] object-contain transition-all duration-500 hover:scale-105" />
+                <Image src={post.mediaUrl} alt="Post media" width={400} height={300} className="w-full max-h-[80vh] object-contain transition-all duration-500 hover:scale-105" />
               ) : post.mediaType === "video" || post.mediaType === "circle" ? (
                 <video src={post.mediaUrl} controls className="w-full max-h-[80vh] object-contain" />
               ) : null}
@@ -274,9 +275,9 @@ export default function PostCard({
                   <p className="mt-1 text-xs text-zinc-600">{post.repostedComment.post.content}</p>
                   {post.repostedComment.post.mediaUrl && (
                     <div className="mt-1 overflow-hidden rounded-lg">
-                      {post.repostedComment.post.mediaType === 'image' ? (
-                        <img src={post.repostedComment.post.mediaUrl} alt="Media" className="w-full max-h-32 object-contain" />
-                      ) : (
+                    {post.repostedComment.post.mediaType === 'image' ? (
+                      <Image src={post.repostedComment.post.mediaUrl} alt="Media" width={400} height={300} className="w-full max-h-32 object-contain" />
+                    ) : (
                         <video src={post.repostedComment.post.mediaUrl} controls className="w-full max-h-32 object-contain" />
                       )}
                     </div>

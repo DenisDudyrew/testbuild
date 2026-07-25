@@ -98,7 +98,6 @@ export class MemoryCache<T> {
 // Используем singleton через глобальный объект для сохранения между hot-reloads в dev режиме
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
-  // eslint-disable-next-line no-var
   var __caches: {
     feed: MemoryCache<any>;
     messages: MemoryCache<any>;

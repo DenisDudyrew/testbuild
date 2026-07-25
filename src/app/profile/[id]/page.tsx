@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { use } from "react";
+import Image from "next/image";
 import { Wind, Calendar, Edit, Trash2, Camera, Upload, Repeat2, Heart, MessageCircle, MessageSquareMore } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -256,7 +257,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         <div className="mb-6 animate-flyInUp">
           <div className="relative h-36 md:h-48 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600">
             {user.header && (
-              <img src={user.header} alt="Header" className="h-full w-full object-cover" />
+              <Image src={user.header} alt="Header" width={800} height={200} className="h-full w-full object-cover" />
             )}
           </div>
           
@@ -264,7 +265,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               <div className="flex flex-col md:flex-row items-center md:items-end gap-4">
               <div className="size-24 md:size-32 rounded-full border-4 border-white dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-lg ring-2 ring-indigo-300">
                 {user.avatar ? (
-                  <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
+                  <Image src={user.avatar} alt="Avatar" width={128} height={128} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-zinc-400 dark:text-zinc-500">
                     <Wind className="size-16" />
@@ -341,9 +342,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="flex items-center flex-wrap gap-3">
                   <div className="size-14 md:size-16 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700 aspect-square">
                     {avatarPreview ? (
-                      <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+                      <Image src={avatarPreview} alt="Preview" width={64} height={64} className="h-full w-full object-cover" unoptimized />
                     ) : user.avatar ? (
-                      <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
+                      <Image src={user.avatar} alt="Avatar" width={64} height={64} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                         <Camera className="size-6" />
@@ -385,9 +386,9 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-24 shrink-0 rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
                     {headerPreview ? (
-                      <img src={headerPreview} alt="Preview" className="h-full w-full object-cover" />
+                      <Image src={headerPreview} alt="Preview" width={96} height={48} className="h-full w-full object-cover" unoptimized />
                     ) : user.header ? (
-                      <img src={user.header} alt="Header" className="h-full w-full object-cover" />
+                      <Image src={user.header} alt="Header" width={96} height={48} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                         <Camera className="size-5" />
@@ -503,7 +504,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                 <div className="flex items-start gap-3">
                   <div className="size-10 shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
                     {user.avatar ? (
-                      <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
+                      <Image src={user.avatar} alt="Avatar" width={40} height={40} className="h-full w-full object-cover" />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -524,7 +525,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                     {post.mediaUrl && (
                       <div className="mt-3 overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
                         {post.mediaType === 'image' ? (
-                          <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[80vh] object-contain" />
+                          <Image src={post.mediaUrl} alt="Post media" width={400} height={300} className="w-full max-h-[80vh] object-contain" />
                         ) : post.mediaType === 'video' || post.mediaType === 'circle' ? (
                           <video src={post.mediaUrl} controls className="w-full max-h-[80vh] object-contain" />
                         ) : null}
@@ -547,7 +548,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                         {post.repostOf.mediaUrl && (
                           <div className="mt-2 overflow-hidden rounded-lg">
                             {post.repostOf.mediaType === 'image' ? (
-                              <img src={post.repostOf.mediaUrl} alt="Media" className="w-full max-h-48 object-contain" />
+                              <Image src={post.repostOf.mediaUrl} alt="Media" width={400} height={300} className="w-full max-h-48 object-contain" />
                             ) : (
                               <video src={post.repostOf.mediaUrl} controls className="w-full max-h-48 object-contain" />
                             )}
@@ -585,7 +586,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
                             {post.repostedComment.post.mediaUrl && (
                               <div className="mt-1 overflow-hidden rounded-lg">
                                 {post.repostedComment.post.mediaType === 'image' ? (
-                                  <img src={post.repostedComment.post.mediaUrl} alt="Media" className="w-full max-h-32 object-contain" />
+                                  <Image src={post.repostedComment.post.mediaUrl} alt="Media" width={400} height={300} className="w-full max-h-32 object-contain" />
                                 ) : (
                                   <video src={post.repostedComment.post.mediaUrl} controls className="w-full max-h-32 object-contain" />
                                 )}

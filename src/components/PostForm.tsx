@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { Paperclip, X } from "lucide-react";
 import { useToast } from "@/components/ToastProvider";
 
@@ -126,10 +127,13 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
           {mediaFile?.type.startsWith("video/") ? (
             <video src={mediaPreview} className="w-full max-h-64 object-contain" />
           ) : (
-            <img
+            <Image
               src={mediaPreview}
               alt="Preview"
+              width={400}
+              height={300}
               className="w-full max-h-64 object-contain"
+              unoptimized
             />
           )}
           <button

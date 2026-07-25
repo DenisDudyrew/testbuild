@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import NextImage from "next/image";
 import { ChevronLeft, Pin, Image as ImageIcon, X, Loader2, Grid3X3, ArrowDown, WifiOff } from "lucide-react";
-import { List } from "react-window";
+import { List, ListImperativeAPI, RowComponentProps } from "react-window";
 import Avatar from "@/components/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
@@ -123,7 +124,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return items;
   }, [messages, conversation.lastReadAt, session?.user?.id]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<any>(null);
+  const listRef = useRef<ListImperativeAPI | null>(null);
   const socketRef = useRef<ReturnType<typeof useSocket>>(null!);
   const lastPollRef = useRef(0);
   const isSendingRef = useRef(false);
@@ -223,7 +224,10 @@ export default function ChatView({ conversation, onBack }: Props) {
   const handleRowsRendered = useCallback(({
     startIndex,
     stopIndex,
-  }: any) => {
+  }: {
+    startIndex: number;
+    stopIndex: number;
+  }) => {
     const isNearBottom = stopIndex >= listItems.length - 3;
     setShowScrollBtn(!isNearBottom);
 
@@ -507,7 +511,7 @@ export default function ChatView({ conversation, onBack }: Props) {
     return height;
   }, [listItems]);
 
-  const Row = useCallback(({ index, style, ariaAttributes }: any) => {
+  const Row = useCallback(({ index, style }: RowComponentProps) => {
     const item = listItems[index];
     if (!item) return null;
 
@@ -652,11 +656,12 @@ export default function ChatView({ conversation, onBack }: Props) {
               {mediaItems.map((item) => (
                 <div key={item.id} className="aspect-square rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                   {item.mediaType === "image" ? (
-                    <img
+                    <NextImage
                       src={item.mediaUrl}
                       alt=""
+                      width={200}
+                      height={200}
                       className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-pink-500/20">

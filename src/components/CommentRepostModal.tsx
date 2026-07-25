@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { X, Repeat2, MessageCircle, Heart, MessageSquareMore } from "lucide-react";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
@@ -144,7 +145,7 @@ export default function CommentRepostModal({ comment, onClose, onReposted }: Com
               {comment.post.mediaUrl && (
                 <div className="mt-2 overflow-hidden rounded-lg">
                   {comment.post.mediaType === "image" ? (
-                    <img src={comment.post.mediaUrl} alt="Media" className="w-full max-h-48 object-contain" />
+                    <Image src={comment.post.mediaUrl} alt="Media" width={400} height={300} className="w-full max-h-48 object-contain" />
                   ) : (
                     <video src={comment.post.mediaUrl} controls className="w-full max-h-48 object-contain" />
                   )}

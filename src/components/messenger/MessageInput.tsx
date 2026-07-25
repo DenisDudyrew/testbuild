@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { Send, Paperclip, X, FileText } from "lucide-react";
 
 interface Props {
@@ -123,9 +124,11 @@ export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply,
         <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/10 border border-zinc-200 dark:border-white/10 animate-slideIn">
           {attachment.type === "image" ? (
             <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-zinc-200 dark:bg-white/10">
-              <img
+              <Image
                 src={attachment.url}
                 alt="Превью"
+                width={40}
+                height={40}
                 className="w-full h-full object-cover"
               />
             </div>

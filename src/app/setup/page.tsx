@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Wind, Camera, Upload, X } from "lucide-react";
 
 export default function SetupPage() {
@@ -147,7 +148,7 @@ export default function SetupPage() {
             <div className="flex items-center gap-4">
               <div className="size-20 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
                 {avatarPreview ? (
-                  <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+                  <Image src={avatarPreview} alt="Preview" width={80} height={80} className="h-full w-full object-cover" unoptimized />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                     <Camera className="size-8" />
@@ -195,7 +196,7 @@ export default function SetupPage() {
             <div className="flex items-center gap-4">
               <div className="h-16 w-32 shrink-0 rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
                 {headerPreview ? (
-                  <img src={headerPreview} alt="Preview" className="h-full w-full object-cover" />
+                  <Image src={headerPreview} alt="Preview" width={128} height={64} className="h-full w-full object-cover" unoptimized />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-zinc-300 dark:text-zinc-500">
                     <Camera className="size-6" />
