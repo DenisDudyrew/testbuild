@@ -37,14 +37,17 @@ interface MockPrisma {
   messageEditHistory: MockModel;
   messageDeliveryStatus: MockModel;
   userBlock: MockModel;
+
   $disconnect: Mock;
   $transaction: Mock;
+  $queryRaw: Mock;
   $queryRawUnsafe: Mock;
 }
 
-// Создаём моки на уровне модуля (vi.hoisted выполняется до vi.mock)
+// Создаём моки на уровне модуля
+// vi.hoisted выполняется до vi.mock
 const { createMockPrisma, createMockAuth } = vi.hoisted(() => {
-  function createMockModel() {
+  function createMockModel(): MockModel {
     return {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -59,7 +62,7 @@ const { createMockPrisma, createMockAuth } = vi.hoisted(() => {
     };
   }
 
-  function createMockPrisma() {
+  function createMockPrisma(): MockPrisma {
     return {
       user: createMockModel(),
       post: createMockModel(),
@@ -83,9 +86,20 @@ const { createMockPrisma, createMockAuth } = vi.hoisted(() => {
       messageEditHistory: createMockModel(),
       messageDeliveryStatus: createMockModel(),
       userBlock: createMockModel(),
-    $disconnect: vi.fn(),
-    $transaction: vi.fn((fn: (prisma: MockPrisma) => unknown): unknown => fn(mockPrisma)),
-    $queryRawUnsafe: vi.fn(),
+
+      $disconnect: vi.fn(),
+
+      $transaction: vi.fn(
+        (fn: (prisma: MockPrisma) => unknown): unknown =>
+          fn(mockPrisma)
+      ),
+
+      // Нужен для route.ts:
+      // await prisma.$queryRaw`...`
+      $queryRaw: vi.fn(),
+
+      // Оставляем существующий мок
+      $queryRawUnsafe: vi.fn(),
     };
   }
 
@@ -97,15 +111,22 @@ const { createMockPrisma, createMockAuth } = vi.hoisted(() => {
     };
   }
 
-  return { createMockPrisma, createMockAuth };
+  return {
+    createMockPrisma,
+    createMockAuth,
+  };
 });
 
-// Создаём экземпляры моков (до vi.mock, который будет вызван в тестах)
+// Создаём экземпляры моков
 export const mockPrisma = createMockPrisma();
 export const mockAuth = createMockAuth();
 
-// Настраиваем моки модулей (vi.mock будет поднят наверх)
-vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
+// Мокаем Prisma
+vi.mock('@/lib/prisma', () => ({
+  prisma: mockPrisma,
+}));
+
+// Мокаем NextAuth
 vi.mock('@/auth', () => mockAuth);
 
 /**
@@ -117,12 +138,20 @@ export function resetMocks(): void {
 
 /**
  * Установить сессию пользователя.
- * @param userId ID пользователя (null = неавторизован)
+ *
+ * @param userId ID пользователя
+ * @param null = неавторизован
  */
-export function setAuthSession(userId: string | null = 'test-user-id'): void {
+export function setAuthSession(
+  userId: string | null = 'test-user-id'
+): void {
   if (userId) {
     mockAuth.auth.mockResolvedValue({
-      user: { id: userId, name: 'testuser', role: 'user' },
+      user: {
+        id: userId,
+        name: 'testuser',
+        role: 'user',
+      },
     });
   } else {
     mockAuth.auth.mockResolvedValue(null);
@@ -156,6 +185,9 @@ export function createGetRequest(
 ): Request {
   return new Request(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
   });
 }
