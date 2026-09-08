@@ -365,28 +365,85 @@ describe('GET /api/feed/for-you', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns scored posts', async () => {
-    const { GET } = await import('@/app/api/feed/for-you/route');
+it('returns scored posts', async () => {
+  const { GET } = await import('@/app/api/feed/for-you/route');
 
-    // Мокаем $queryRawUnsafe для основного запроса и для count
-    mockPrisma.$queryRawUnsafe
-      .mockResolvedValueOnce([{ id: 'post-1' }])
-      .mockResolvedValueOnce([{ total: 1 }]);
-    mockPrisma.follow.findMany.mockResolvedValue([{ followingId: 'user-2' }]);
-    mockPrisma.post.findMany.mockResolvedValue([
+  mockPrisma.$queryRaw
+    .mockResolvedValueOnce([
       {
         id: 'post-1',
-        content: 'Popular post',
-        userId: 'user-2',
-        createdAt: new Date(),
-        user: { id: 'user-2', username: 'other', avatar: null },
-        likes: [{ userId: 'user-3' }],
-        repostOf: null,
-        repostedComment: null,
-        _count: { likes: 5, comments: 3, reposts: 1 },
-        poll: null,
+        score: 185,
+        isFollowing: true,
+      },
+    ])
+    .mockResolvedValueOnce([
+      {
+        total: BigInt(1),
       },
     ]);
+
+  mockPrisma.post.findMany.mockResolvedValue([
+    {
+      id: 'post-1',
+      content: 'Popular post',
+      userId: 'user-2',
+      createdAt: new Date(),
+
+      user: {
+        id: 'user-2',
+        username: 'other',
+        avatar: null,
+      },
+
+      likes: [],
+
+      repostOf: null,
+      repostedComment: null,
+
+      _count: {
+        likes: 5,
+        comments: 3,
+        reposts: 1,
+      },
+
+      poll: null,
+    },
+  ]);
+
+  const res = await GET(
+    createGetRequest(
+      'http://localhost:3000/api/feed/for-you?page=1&limit=10'
+    )
+  );
+
+  expect(res.status).toBe(200);
+
+  const data = await res.json();
+
+  expect(data.posts).toHaveLength(1);
+  expect(data.posts[0]._score).toBe(185);
+  expect(data.posts[0].isFollowing).toBe(true);
+  expect(data.posts[0].isLiked).toBe(false);
+  expect(data.total).toBe(1);
+});
+
+  const res = await GET(
+    createGetRequest(
+      'http://localhost:3000/api/feed/for-you?page=1&limit=10'
+    )
+  );
+
+  expect(res.status).toBe(200);
+
+  const data = await res.json();
+
+  expect(data.posts).toHaveLength(1);
+  expect(data.posts[0]._score).toBeDefined();
+  expect(data.posts[0]._score).toBe(185);
+  expect(data.posts[0].isFollowing).toBe(true);
+  expect(data.posts[0].isLiked).toBe(false);
+  expect(data.total).toBe(1);
+});
 
     const res = await GET(createGetRequest('http://localhost:3000/api/feed/for-you?page=1&limit=10'));
     expect(res.status).toBe(200);
