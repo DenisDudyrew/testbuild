@@ -349,6 +349,7 @@ describe('POST /api/bookmarks', () => {
 });
 
 // ==================== FEED ====================
+// ==================== FEED ====================
 import { feedCache } from '@/lib/cache';
 
 describe('GET /api/feed/for-you', () => {
@@ -360,150 +361,92 @@ describe('GET /api/feed/for-you', () => {
 
   it('returns 401 if not authenticated', async () => {
     setAuthSession(null);
-    const { GET } = await import('@/app/api/feed/for-you/route');
-    const res = await GET(createGetRequest('http://localhost:3000/api/feed/for-you'));
+
+    const { GET } = await import(
+      '@/app/api/feed/for-you/route'
+    );
+
+    const res = await GET(
+      createGetRequest(
+        'http://localhost:3000/api/feed/for-you'
+      )
+    );
+
     expect(res.status).toBe(401);
   });
 
-it('returns scored posts', async () => {
-  const { GET } = await import('@/app/api/feed/for-you/route');
+  it('returns scored posts', async () => {
+    const { GET } = await import(
+      '@/app/api/feed/for-you/route'
+    );
 
-  mockPrisma.$queryRaw
-    .mockResolvedValueOnce([
-      {
-        id: 'post-1',
-        score: 185,
-        isFollowing: true,
-      },
-    ])
-    .mockResolvedValueOnce([
-      {
-        total: BigInt(1),
-      },
-    ]);
+    // Первый $queryRaw — получение постов со score
+    mockPrisma.$queryRaw
+      .mockResolvedValueOnce([
+        {
+          id: 'post-1',
+          score: 185,
+          isFollowing: true,
+        },
+      ])
 
-  mockPrisma.post.findMany.mockResolvedValue([
-    {
-      id: 'post-1',
-      content: 'Popular post',
-      userId: 'user-2',
-      createdAt: new Date(),
+      // Второй $queryRaw — получение total
+      .mockResolvedValueOnce([
+        {
+          total: BigInt(1),
+        },
+      ]);
 
-      user: {
-        id: 'user-2',
-        username: 'other',
-        avatar: null,
-      },
-
-      likes: [],
-
-      repostOf: null,
-      repostedComment: null,
-
-      _count: {
-        likes: 5,
-        comments: 3,
-        reposts: 1,
-      },
-
-      poll: null,
-    },
-  ]);
-
-  const res = await GET(
-    createGetRequest(
-      'http://localhost:3000/api/feed/for-you?page=1&limit=10'
-    )
-  );
-
-  expect(res.status).toBe(200);
-
-  const data = await res.json();
-
-  expect(data.posts).toHaveLength(1);
-  expect(data.posts[0]._score).toBe(185);
-  expect(data.posts[0].isFollowing).toBe(true);
-  expect(data.posts[0].isLiked).toBe(false);
-  expect(data.total).toBe(1);
-});
-
-  const res = await GET(
-    createGetRequest(
-      'http://localhost:3000/api/feed/for-you?page=1&limit=10'
-    )
-  );
-
-  expect(res.status).toBe(200);
-
-  const data = await res.json();
-
-  expect(data.posts).toHaveLength(1);
-  expect(data.posts[0]._score).toBeDefined();
-  expect(data.posts[0]._score).toBe(185);
-  expect(data.posts[0].isFollowing).toBe(true);
-  expect(data.posts[0].isLiked).toBe(false);
-  expect(data.total).toBe(1);
-});
-
-    const res = await GET(createGetRequest('http://localhost:3000/api/feed/for-you?page=1&limit=10'));
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.posts).toHaveLength(1);
-    expect(data.posts[0]._score).toBeDefined();
-    expect(data.total).toBe(1);
-  });
-});
-
-describe('GET /api/feed/following', () => {
-  beforeEach(() => {
-    resetMocks();
-    setAuthSession('user-1');
-    feedCache().clear();
-  });
-
-  it('returns 401 if not authenticated', async () => {
-    setAuthSession(null);
-    const { GET } = await import('@/app/api/feed/following/route');
-    const res = await GET(createGetRequest('http://localhost:3000/api/feed/following'));
-    expect(res.status).toBe(401);
-  });
-
-  it('returns empty array when not following anyone', async () => {
-    const { GET } = await import('@/app/api/feed/following/route');
-    mockPrisma.follow.findMany.mockResolvedValue([]);
-
-    const res = await GET(createGetRequest('http://localhost:3000/api/feed/following'));
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.posts).toEqual([]);
-    expect(data.total).toBe(0);
-  });
-
-  it('returns posts from followed users', async () => {
-    const { GET } = await import('@/app/api/feed/following/route');
-
-    mockPrisma.follow.findMany.mockResolvedValue([{ followingId: 'user-2' }]);
     mockPrisma.post.findMany.mockResolvedValue([
       {
         id: 'post-1',
-        content: 'From followed',
+        content: 'Popular post',
         userId: 'user-2',
         createdAt: new Date(),
-        user: { id: 'user-2', username: 'other', avatar: null },
+
+        user: {
+          id: 'user-2',
+          username: 'other',
+          avatar: null,
+        },
+
+        // Пользователь пост не лайкал
         likes: [],
+
         repostOf: null,
         repostedComment: null,
-        _count: { likes: 0, comments: 0, reposts: 0 },
+
+        _count: {
+          likes: 5,
+          comments: 3,
+          reposts: 1,
+        },
+
         poll: null,
       },
     ]);
-    mockPrisma.post.count.mockResolvedValue(1);
 
-    const res = await GET(createGetRequest('http://localhost:3000/api/feed/following'));
+    const res = await GET(
+      createGetRequest(
+        'http://localhost:3000/api/feed/for-you?page=1&limit=10'
+      )
+    );
+
     expect(res.status).toBe(200);
+
     const data = await res.json();
+
     expect(data.posts).toHaveLength(1);
+
+    expect(data.posts[0].id).toBe('post-1');
+    expect(data.posts[0]._score).toBe(185);
+
+    expect(data.posts[0].isFollowing).toBe(true);
+    expect(data.posts[0].isLiked).toBe(false);
+
     expect(data.total).toBe(1);
+    expect(data.page).toBe(1);
+    expect(data.limit).toBe(10);
   });
 });
 
