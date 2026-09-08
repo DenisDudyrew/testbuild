@@ -63,6 +63,9 @@ model Post {
   hashtags          PostHashtag[]
   bookmarks         Bookmark[]
   poll              Poll?          @relation("PostPoll")
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([repostOfId])
 }
 
 model Poll {
@@ -107,6 +110,7 @@ model Like {
   notifications Notification[] @relation("LikeNotifications")
 
   @@unique([userId, postId])
+  @@index([postId])
 }
 
 model Comment {
@@ -123,6 +127,9 @@ model Comment {
   likes           CommentLike[]
   repostedInPosts Post[]         @relation("CommentReposts")
   notifications   Notification[] @relation("CommentNotifications")
+
+   @@index([postId])
+  @@index([userId])
 }
 
 model CommentLike {
@@ -276,6 +283,8 @@ model Follow {
 
   @@unique([followerId, followingId])
   @@map("follows")
+  @@index([followerId, followingId])
+  @@index([followingId])
 }
 
 model Hashtag {
@@ -292,6 +301,7 @@ model PostHashtag {
 
   @@unique([postId, hashtagId])
   @@map("post_hashtags")
+  
 }
 
 model Bookmark {
