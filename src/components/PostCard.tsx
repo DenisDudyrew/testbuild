@@ -267,12 +267,12 @@ export default function PostCard({
                       name={post.repostedComment.post.user.username}
                       size={4}
                     />
-                    <span className="text-xs font-semibold text-zinc-900">{post.repostedComment.post.user.username}</span>
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{post.repostedComment.post.user.username}</span>
                     <span className="text-xs text-zinc-400">
                       {new Date(post.repostedComment.post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-zinc-600">{post.repostedComment.post.content}</p>
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{post.repostedComment.post.content}</p>
                   {post.repostedComment.post.mediaUrl && (
                     <div className="mt-1 overflow-hidden rounded-lg">
                     {post.repostedComment.post.mediaType === 'image' ? (

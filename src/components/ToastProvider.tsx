@@ -103,7 +103,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={closeConfirm}
-                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
               >
                 Отмена
               </button>

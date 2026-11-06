@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Wind, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
+import { themeSafeHtml } from "@/lib/release-note-html";
 
 interface ReleaseNote {
   id: string;
@@ -93,8 +94,8 @@ export default function UpdatesPage() {
                 {expanded.has(note.id) && (
                   <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-4">
                     <div
-                      className="prose prose-sm prose-zinc max-w-none"
-                      dangerouslySetInnerHTML={{ __html: note.content }}
+                      className="prose prose-sm prose-zinc max-w-none dark:prose-invert prose-headings:text-zinc-900 dark:prose-headings:text-zinc-100 prose-p:text-zinc-700 dark:prose-p:text-zinc-300 prose-li:text-zinc-700 dark:prose-li:text-zinc-300 prose-strong:text-zinc-900 dark:prose-strong:text-zinc-100 prose-a:text-indigo-600 dark:prose-a:text-indigo-400"
+                      dangerouslySetInnerHTML={{ __html: themeSafeHtml(note.content) }}
                     />
                   </div>
                 )}

@@ -128,23 +128,23 @@ export default function NotificationPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute left-full top-0 z-50 ml-2 w-80 rounded-2xl border border-zinc-200 bg-white shadow-xl"
+      className="absolute left-full top-0 z-50 ml-2 w-80 rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
     >
       {/* Заголовок */}
-      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-        <h3 className="text-sm font-semibold text-zinc-900">Уведомления</h3>
+      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Уведомления</h3>
         <div className="flex items-center gap-2">
           {notifications.some(n => !n.read) && (
             <button
               onClick={markAllRead}
-              className="text-xs text-indigo-600 hover:text-indigo-700"
+              className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
             >
               Прочитать все
             </button>
           )}
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
           >
             <X className="size-4" />
           </button>
@@ -158,7 +158,7 @@ export default function NotificationPanel({
             <div className="size-5 animate-spin rounded-full border-2 border-zinc-200 border-t-indigo-600" />
           </div>
         ) : notifications.length === 0 ? (
-          <div className="py-8 text-center text-sm text-zinc-400">
+          <div className="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
             Нет уведомлений
           </div>
         ) : (
@@ -166,8 +166,8 @@ export default function NotificationPanel({
             <button
               key={notification.id}
               onClick={() => handleClick(notification)}
-              className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 ${
-                !notification.read ? 'bg-indigo-50/40' : ''
+              className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${
+                !notification.read ? 'bg-indigo-50/40 dark:bg-indigo-500/10' : ''
               }`}
             >
               {/* Аватар актора */}
@@ -181,21 +181,21 @@ export default function NotificationPanel({
                     className="size-9 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="size-9 rounded-full bg-zinc-200" />
+                  <div className="size-9 rounded-full bg-zinc-200 dark:bg-zinc-700" />
                 )}
                 {/* Иконка типа уведомления */}
-                <div className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-white bg-white">
+                <div className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-white bg-white dark:border-zinc-900 dark:bg-zinc-900">
                   {getIcon(notification.type)}
                 </div>
               </div>
 
               {/* Текст */}
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-zinc-700 leading-relaxed">
+                <p className="text-xs text-zinc-700 leading-relaxed dark:text-zinc-300">
                   {getText(notification)}
                 </p>
                 {notification.post && (
-                  <p className="mt-0.5 truncate text-xs text-zinc-400">
+                  <p className="mt-0.5 truncate text-xs text-zinc-400 dark:text-zinc-500">
                     {notification.post.content}
                   </p>
                 )}

@@ -19,6 +19,7 @@ import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 import Sidebar from "@/components/Sidebar";
 import RichTextEditor from "@/components/RichTextEditor";
+import { themeSafeHtml } from "@/lib/release-note-html";
 
 interface User {
   id: string;
@@ -1002,7 +1003,7 @@ export default function AdminPage() {
                       <div
                         className="prose prose-sm prose-zinc line-clamp-3 max-w-none dark:prose-invert"
                         dangerouslySetInnerHTML={{
-                          __html: note.content,
+                          __html: themeSafeHtml(note.content),
                         }}
                       />
                     </div>
@@ -1033,7 +1034,7 @@ export default function AdminPage() {
 
                     <button
                       onClick={() => setShowEditor(false)}
-                      className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                      className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                     >
                       <X className="size-5" />
                     </button>

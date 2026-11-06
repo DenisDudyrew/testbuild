@@ -181,7 +181,7 @@ export default function NotificationsPage() {
                 <div className="relative shrink-0">
                   <Avatar id={notification.actor.id} src={notification.actor.avatar} name={notification.actor.username} size={12} />
                   {/* Иконка типа уведомления */}
-                  <div className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-white bg-white">
+                  <div className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-white bg-white dark:border-zinc-900 dark:bg-zinc-900">
                     {getIcon(notification.type)}
                   </div>
                 </div>

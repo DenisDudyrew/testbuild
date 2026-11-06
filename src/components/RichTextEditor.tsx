@@ -48,9 +48,9 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   }, [exec]);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-zinc-200 bg-zinc-50 px-2 py-1.5">
+      <div className="flex flex-wrap items-center gap-0.5 border-b border-zinc-200 bg-zinc-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800/60">
         <ToolbarButton onClick={() => exec("formatBlock", "<h1>")} title="Заголовок 1">
           <Heading1 className="size-4" />
         </ToolbarButton>
@@ -94,7 +94,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         suppressContentEditableWarning
         onInput={handleInput}
         data-placeholder={placeholder}
-        className="prose prose-sm max-w-none overflow-y-auto px-4 py-3 outline-none focus:outline-none [&:empty:before]:text-zinc-400 [&:empty:before]:content-[attr(data-placeholder)]"
+        className="prose prose-sm max-w-none overflow-y-auto px-4 py-3 outline-none focus:outline-none dark:prose-invert dark:text-zinc-100 [&:empty:before]:text-zinc-400 [&:empty:before]:content-[attr(data-placeholder)]"
         style={{ minHeight, maxHeight, direction: "ltr", textAlign: "left", writingMode: "horizontal-tb" }}
       />
     </div>
@@ -107,7 +107,7 @@ function ToolbarButton({ onClick, children, title }: { onClick: () => void; chil
       type="button"
       onClick={onClick}
       title={title}
-      className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+      className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
       onMouseDown={(e) => e.preventDefault()}
     >
       {children}
