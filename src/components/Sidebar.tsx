@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Wind, Home, User, Shield, Search, LogOut, Bell, Newspaper, MessageCircle, Menu, X, Sun, Moon, Bookmark } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import Avatar from "@/components/Avatar";
-import { useTheme } from "./ThemeProvider";
+import { useTheme, ACCENTS } from "./ThemeProvider";
 import type { LucideIcon } from "lucide-react";
 
 interface NavItemProps {
@@ -78,6 +78,35 @@ function ThemeToggle() {
         }`} />
       </div>
     </button>
+  );
+}
+
+
+function AccentPicker() {
+  const { accent, setAccent } = useTheme();
+
+  return (
+    <div className="flex items-center gap-2.5 px-3 pb-2.5 pt-0.5">
+      {ACCENTS.map((item) => {
+        const active = accent === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setAccent(item.id)}
+            title={item.label}
+            aria-label={item.label}
+            aria-pressed={active}
+            className={`size-5 shrink-0 rounded-full transition-all duration-200 hover:scale-110 ${
+              active
+                ? "ring-2 ring-offset-2 ring-zinc-400 dark:ring-zinc-500 dark:ring-offset-zinc-900 scale-105"
+                : "ring-1 ring-black/10 dark:ring-white/20 opacity-80 hover:opacity-100"
+            }`}
+            style={{ backgroundColor: item.color }}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -185,7 +214,7 @@ export default function Sidebar({ hideMobileButton }: { hideMobileButton?: boole
         <div className="flex shrink-0 items-center gap-2 px-5 py-4">
           <Wind className="size-7 text-indigo-600" />
           <span className="text-xl font-bold text-zinc-900 dark:text-white">ZEPHYR</span>
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">v0.0.5</span>
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">v0.0.6</span>
         </div>
 
         {/* Navigation */}
@@ -211,6 +240,7 @@ export default function Sidebar({ hideMobileButton }: { hideMobileButton?: boole
         {/* Theme toggle */}
         <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800">
           <ThemeToggle />
+          <AccentPicker />
         </div>
 
         {/* Bottom section */}
