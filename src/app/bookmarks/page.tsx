@@ -68,7 +68,7 @@ export default function BookmarksPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <Sidebar />
-      <div className="pl-60 max-md:pl-0">
+      <div className="pl-60 max-sm:pl-0">
         <main className="mx-auto max-w-2xl px-4 py-6 animate-fadeIn">
           <h1 className="mb-6 text-xl font-bold text-zinc-900 dark:text-white animate-flyInLeft pl-12 sm:pl-0 flex items-center gap-2">
             <Bookmark className="size-5 text-indigo-500" />

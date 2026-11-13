@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Wind, Mail, KeyRound, CheckCircle, Loader2 } from "lucide-react";
+import { Wind, Mail, KeyRound, CheckCircle, Loader2, ArrowUpRight, Sparkles } from "lucide-react";
 
 export default function Home() {
   const { data: session, update } = useSession();
@@ -199,15 +200,28 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/95 p-8 shadow-sm dark:shadow-2xl dark:shadow-black/40">
+    <div className="auth-shell">
+      <section className="auth-story" aria-label="Знакомство с ZEPHYR">
+        <Link href="/" className="zephyr-wordmark"><Wind /> zephyr<span>.</span></Link>
+        <div className="auth-story-content">
+          <span className="eyebrow"><span className="status-dot" /> МЕНЬШЕ ШУМА. БОЛЬШЕ ТЕБЯ.</span>
+          <h2>Твои люди.<br />Твой <span>вайб.</span></h2>
+          <p>Мысли вслух, случайные открытия и разговоры, которые хочется продолжить.</p>
+          <div className="story-note"><Sparkles size={18} /> Здесь можно просто быть собой <ArrowUpRight size={20} /></div>
+          <div className="story-tags"><span>#жизнькакесть</span><span>#вдохновение</span><span>#свои</span></div>
+        </div>
+        <div className="auth-story-footer"><span>НА СВОЕЙ ВОЛНЕ</span><span>EST. 2026 ↗</span></div>
+      </section>
+      <div className="auth-form-wrap">
+      <div className="auth-form-intro"><span className="eyebrow">ТВОЁ МЕСТО В ИНТЕРНЕТЕ</span><h2>{mode === 'login' ? 'С возвращением 👋' : 'Давай знакомиться ✨'}</h2><p>{mode === 'login' ? 'Твои люди уже здесь. Подключайся.' : 'Всего пара шагов — и ты на своей волне.'}</p></div>
+      <div className="auth-card w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/95 p-8 shadow-sm dark:shadow-2xl dark:shadow-black/40">
         <div className="flex items-center gap-2 mb-6">
           <Wind className="size-8 text-indigo-600" />
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">ZEPHYR</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">zephyr.</h1>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-400">
+          <div role="alert" className="mb-4 rounded-lg bg-red-50 dark:bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
@@ -221,6 +235,8 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Логин</label>
                 <input
                   type="text"
+                  aria-label="Логин"
+                  autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:text-zinc-100 dark:placeholder-zinc-500"
@@ -230,6 +246,8 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Пароль</label>
                 <input
                   type="password"
+                  aria-label="Пароль"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:text-zinc-100 dark:placeholder-zinc-500"
@@ -265,6 +283,8 @@ export default function Home() {
                 </label>
                 <input
                   type="email"
+                  aria-label="Email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
@@ -371,6 +391,8 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Логин</label>
                 <input
                   type="text"
+                  aria-label="Логин"
+                  autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Минимум 3 символа"
@@ -381,6 +403,8 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Пароль</label>
                 <input
                   type="password"
+                  aria-label="Пароль"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Минимум 6 символов"
@@ -397,6 +421,8 @@ export default function Home() {
             </form>
           </>
         )}
+      </div>
+      <p className="auth-footnote">Место для мыслей. И тех, кто их разделяет.</p>
       </div>
     </div>
   );

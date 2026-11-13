@@ -140,7 +140,7 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <Sidebar />
 
-      <div className="pl-60 max-md:pl-0">
+      <div className="pl-60 max-sm:pl-0">
         <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6 animate-fadeIn">
         {/* Заголовок */}
         <div className="mb-6 flex items-center gap-4 pl-12 sm:pl-0">

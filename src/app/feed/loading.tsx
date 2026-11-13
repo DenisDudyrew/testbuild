@@ -1,7 +1,7 @@
 export default function FeedLoading() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="pl-60 max-md:pl-0">
+      <div className="pl-60 max-sm:pl-0">
         <div className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6">
           {/* Skeleton: tabs */}
           <div className="flex gap-1 mb-6">

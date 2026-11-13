@@ -6,7 +6,7 @@ type Theme = "light" | "dark";
 export type Accent = "violet" | "emerald" | "orange" | "crimson" | "blue";
 
 export const ACCENTS: { id: Accent; label: string; color: string }[] = [
-  { id: "violet", label: "Фиолетовый", color: "#6366f1" },
+  { id: "violet", label: "Лайм", color: "#d4f58a" },
   { id: "emerald", label: "Изумрудный", color: "#10b981" },
   { id: "orange", label: "Оранжевый", color: "#f97316" },
   { id: "crimson", label: "Малиновый", color: "#e11d48" },
@@ -78,11 +78,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setAccent = useCallback((a: Accent) => {
     setAccentState(a);
   }, []);
-
-  // Prevent hydration mismatch — render children with default theme until mounted
-  if (!mounted) {
-    return <>{children}</>;
-  }
 
   return (
     <ThemeContext.Provider value={{ theme, accent, toggleTheme, setTheme, setAccent }}>

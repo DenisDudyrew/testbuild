@@ -251,7 +251,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <Sidebar />
 
-      <div className="pl-60 max-md:pl-0">
+      <div className="pl-60 max-sm:pl-0">
         <main className="mx-auto max-w-2xl min-[1600px]:max-w-3xl px-4 py-6 animate-fadeIn">
         {/* Шапка профиля */}
         <div className="mb-6 animate-flyInUp">

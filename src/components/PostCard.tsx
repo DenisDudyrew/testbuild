@@ -103,7 +103,7 @@ export default function PostCard({
   return (
     <article
       id={`post-${post.id}`}
-      className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-500/20 animate-rise"  
+      className="post-card rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-500/20 animate-rise"
     >
       <div className="flex items-start gap-3">
         <Avatar

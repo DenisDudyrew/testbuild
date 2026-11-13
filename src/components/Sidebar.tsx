@@ -21,6 +21,7 @@ interface NavItemProps {
 function NavItem({ icon: Icon, label, isActive, onClick, activeColor = "text-indigo-700 bg-indigo-50", badge }: NavItemProps) {
   return (
     <button
+      aria-current={isActive ? "page" : undefined}
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
         isActive
@@ -177,6 +178,8 @@ export default function Sidebar({ hideMobileButton }: { hideMobileButton?: boole
     <>
       {/* Mobile toggle button — гамбургер, когда сайдбар закрыт */}
       <button
+        aria-label="Открыть меню"
+        aria-expanded={isMobileOpen}
         onClick={() => setIsMobileOpen(true)}
         className={`fixed top-4 left-4 z-50 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 p-2.5 shadow-lg border border-zinc-200 dark:border-zinc-700 sm:hidden transition-all duration-300 ${
           isMobileOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
@@ -195,13 +198,14 @@ export default function Sidebar({ hideMobileButton }: { hideMobileButton?: boole
 
       {/* Sidebar */}
       <aside className={`
-        fixed left-0 top-0 z-40 flex h-full w-60 flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl
+        zephyr-sidebar fixed left-0 top-0 z-40 flex h-full w-60 flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl
         transition-all duration-300 ease-out
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         sm:translate-x-0
       `}>
         {/* Кнопка закрытия — анимированно переезжает в правый верхний угол при открытии */}
         <button
+          aria-label="Закрыть меню"
           onClick={() => setIsMobileOpen(false)}
           className={`absolute top-4 right-4 z-50 flex items-center justify-center rounded-xl bg-white dark:bg-zinc-800 p-2.5 shadow-lg border border-zinc-200 dark:border-zinc-700 sm:hidden transition-all duration-300 ${
             isMobileOpen ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"
@@ -213,12 +217,13 @@ export default function Sidebar({ hideMobileButton }: { hideMobileButton?: boole
         {/* Logo */}
         <div className="flex shrink-0 items-center gap-2 px-5 py-4">
           <Wind className="size-7 text-indigo-600" />
-          <span className="text-xl font-bold text-zinc-900 dark:text-white">ZEPHYR</span>
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">v0.0.6</span>
+          <span className="sidebar-wordmark">zephyr<span>.</span></span>
+
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-3">
+        <div className="sidebar-caption">ТВОЁ ПРОСТРАНСТВО</div>
+        <nav aria-label="Основная навигация" className="flex-1 space-y-1 px-3">
           <NavItem path="/feed" icon={Home} label="Лента" isActive={isActive('/feed')} onClick={() => router.push('/feed')} />
           <NavItem path="/search" icon={Search} label="Поиск" isActive={isActive('/search')} onClick={() => router.push('/search')} />
           <NavItem path="/notifications" icon={Bell} label="Уведомления" badge={unreadCount} isActive={isActive('/notifications')} onClick={() => router.push('/notifications')} />

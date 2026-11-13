@@ -1,7 +1,7 @@
 export default function MessengerLoading() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="pl-60 max-md:pl-0 h-screen">
+      <div className="pl-60 max-sm:pl-0 h-screen">
         <div className="flex h-full">
           <div className="w-[380px] max-md:w-full border-r border-zinc-200 dark:border-white/10">
             <div className="p-5">

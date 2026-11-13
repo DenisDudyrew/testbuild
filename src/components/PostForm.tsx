@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Paperclip, X } from "lucide-react";
 import { useToast } from "@/components/ToastProvider";
@@ -17,6 +17,10 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showAlert } = useToast();
+
+  useEffect(() => {
+    return () => { if (mediaPreview) URL.revokeObjectURL(mediaPreview); };
+  }, [mediaPreview]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,7 +51,7 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPostContent.trim() && !mediaFile) return;
+    if (isLoading || (!newPostContent.trim() && !mediaFile)) return;
     setIsLoading(true);
     try {
       let mediaUrl: string | null = null;
@@ -82,20 +86,26 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
 
       if (response.ok) {
         setNewPostContent("");
-        setMediaFile(null);
-        setMediaPreview(null);
+        handleRemoveMedia();
         onPostCreated();
+      } else {
+        const data = await response.json();
+        showAlert(data.error || "Не удалось опубликовать пост. Попробуй ещё раз.");
       }
     } catch (error) {
       console.error("Failed to create post:", error);
+      showAlert("Нет соединения. Твой текст сохранён — попробуй ещё раз.");
     } finally {
+      setIsUploading(false);
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-indigo-500/20">
+    <form onSubmit={handleSubmit} className="post-composer mb-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-indigo-500/20">
+      <div className="composer-heading">Что у тебя нового? <span>Твоя волна начинается здесь</span></div>
       <textarea
+        aria-label="Текст нового поста"
         value={newPostContent}
         onChange={(e) => setNewPostContent(e.target.value)}
         onKeyDown={(e) => {
@@ -103,7 +113,7 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
             handleSubmit(e);
           }
         }}
-        placeholder="Что нового?"
+        placeholder="Мысль, история или тот самый мем…"
         className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 dark:text-zinc-100"
         rows={3}
         maxLength={1000}
@@ -139,6 +149,7 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
           <button
             type="button"
             onClick={handleRemoveMedia}
+            aria-label="Удалить вложение"
             className="absolute top-2 right-2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70 transition-all duration-200"
           >
             <X className="size-4" />

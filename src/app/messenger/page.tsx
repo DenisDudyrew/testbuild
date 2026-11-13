@@ -56,7 +56,7 @@ export default function MessengerPage() {
     return (
       <>
         <Sidebar />
-        <div className="pl-60 max-md:pl-0 min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="pl-60 max-sm:pl-0 min-h-screen bg-zinc-50 flex items-center justify-center">
           <div className="text-center">
             <MessageCircle className="size-12 mx-auto mb-4 text-zinc-300" />
             <p className="text-zinc-500">Войдите, чтобы использовать мессенджер</p>
@@ -69,7 +69,7 @@ export default function MessengerPage() {
   return (
     <>
       <Sidebar hideMobileButton={showChatOnMobile} />
-      <div className="pl-60 max-md:pl-0 w-full overflow-hidden min-h-screen bg-gradient-to-br from-zinc-50 via-white to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
+      <div className="pl-60 max-sm:pl-0 w-full overflow-hidden min-h-screen bg-gradient-to-br from-zinc-50 via-white to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
         <div className="flex h-screen overflow-hidden">
           {/* Desktop: Conversation List */}
           <div
