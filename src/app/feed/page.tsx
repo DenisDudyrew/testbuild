@@ -33,11 +33,13 @@ export default function FeedPage() {
 
 function FeedContent() {
   const { data: session } = useSession();
+  const userId = session?.user?.id;
   const [feedTab, setFeedTab] = useState<FeedTab>('for-you');
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
   const [linkedPost, setLinkedPost] = useState<Post | null>(null);
   const [feedHasMore, setFeedHasMore] = useState(true);
   const [feedLoading, setFeedLoading] = useState(false);
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [feedPage, setFeedPage] = useState(1);
   const feedPageRef = useRef(feedPage);
   useEffect(() => {
@@ -77,6 +79,7 @@ function FeedContent() {
     const endpoint = feedTab === 'for-you' ? '/api/feed/for-you' : '/api/feed/following';
     failedFeedRequest.current = { page: pageNum, append };
     setFeedLoading(true);
+    setFeedLoadingMore(append);
     setFeedError('');
     try {
       const res = await fetch(`${endpoint}?page=${pageNum}&limit=10`, { signal: controller.signal });
@@ -99,12 +102,12 @@ function FeedContent() {
       console.error('Failed to load feed:', err);
       setFeedError('Нет соединения. Проверь интернет и попробуй ещё раз.');
     } finally {
-      if (!controller.signal.aborted) { feedRequest.current = null; setFeedLoading(false); }
+      if (!controller.signal.aborted) { feedRequest.current = null; setFeedLoading(false); setFeedLoadingMore(false); }
     }
   }, [feedTab]);
 
   useEffect(() => {
-    if (session) {
+    if (userId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFeedPosts([]);
       setFeedHasMore(false);
@@ -112,7 +115,7 @@ function FeedContent() {
       setFeedPage(1);
       loadFeed(1);
     }
-  }, [session, feedTab, loadFeed]);
+  }, [userId, feedTab, loadFeed]);
 
   useEffect(() => {
     if (!highlightPostId || !session?.user?.id) return;
@@ -397,7 +400,7 @@ function FeedContent() {
                         disabled={feedLoading}
                         className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-6 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:shadow-md disabled:opacity-50"
                       >
-                        {feedLoading ? (
+                        {feedLoadingMore ? (
                           <span className="flex items-center gap-2">
                             <div className="size-4 animate-spin rounded-full border-2 border-zinc-200 border-t-indigo-600" />
                             Загрузка...
