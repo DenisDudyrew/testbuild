@@ -61,6 +61,7 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
         setIsUploading(true);
         const uploadFormData = new FormData();
         uploadFormData.append("file", mediaFile);
+        uploadFormData.append("purpose", "post");
         const uploadResponse = await fetch("/api/upload", {
           method: "POST",
           body: uploadFormData,

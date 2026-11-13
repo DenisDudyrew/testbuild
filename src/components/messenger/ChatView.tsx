@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSession } from "next-auth/react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
+import { useSession } from "@/lib/auth-client";
 import NextImage from "next/image";
 import { ChevronLeft, Pin, Image as ImageIcon, X, Loader2, Grid3X3, ArrowDown, WifiOff } from "lucide-react";
-import { List, ListImperativeAPI, RowComponentProps } from "react-window";
+import { useToast } from "@/components/ToastProvider";
 import Avatar from "@/components/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
@@ -13,9 +13,8 @@ import { useSocket } from "@/lib/socket-client";
 
 const PAGE_SIZE = 50;
 const POLL_INTERVAL = 15000;
-const POST_DEBOUNCE_MS = 2000;
 const TYPING_POLL_INTERVAL = 5000;
-let localIdCounter = 0;
+
 
 
 interface MessageReaction {
@@ -27,6 +26,8 @@ interface MessageReaction {
 
 interface Message {
   id: string;
+  conversationId?: string;
+  tempId?: string;
   content: string;
   createdAt: string;
   senderId: string;
@@ -123,362 +124,257 @@ export default function ChatView({ conversation, onBack }: Props) {
     }
     return items;
   }, [messages, conversation.lastReadAt, session?.user?.id]);
+  const messageContentRef = useRef<HTMLDivElement>(null);
+  const jumpTarget = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<ListImperativeAPI | null>(null);
   const socketRef = useRef<ReturnType<typeof useSocket>>(null!);
-  const lastPollRef = useRef(0);
+  const initialLoadRef = useRef(true);
   const isSendingRef = useRef(false);
   const isTypingRef = useRef(false);
-  const prevScrollOffsetRef = useRef(0);
-  const initialLoadRef = useRef(true);
-  const [listHeight, setListHeight] = useState(0);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRef = useRef(true);
+  const pendingRequest = useRef<{ key: string; id: string } | null>(null);
+  const pageRequest = useRef<AbortController | null>(null);
+  const latestRequest = useRef<AbortController | null>(null);
+  const requestControllers = useRef(new Set<AbortController>());
+  const scrollAnchor = useRef<{ height: number; top: number } | null>(null);
+  const nearBottom = useRef(true);
+  const syncRef = useRef<() => void>(() => {});
+  const { showAlert } = useToast();
+  const [loadError, setLoadError] = useState('');
 
   const socket = useSocket(session?.user?.id, {
     onMessageNew: (message) => {
-      setMessages((prev) => {
-        if (prev.some(m => m.id === message.id)) return prev;
-        // Заменяем оптимистичное сообщение по точному совпадению tempId
-        // Сервер должен возвращать тот же tempId в ответе для корректной замены
-        return prev.map(m => m.id === message.id ? message : m);
-      });
+      if (message.conversationId !== conversation.id) return;
+      setMessages(prev => [...prev.filter(m => m.id !== message.id && (!message.tempId || m.id !== message.tempId)), message]
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)));
     },
-    onTypingUpdate: (data) => {
-      if (data.conversationId === conversation.id) {
-        setTypingUsers(data.typing);
+    onMessagesChanged: data => {
+      if (data.conversationId !== conversation.id) return;
+      syncRef.current();
+      if (data.messageId) {
+        fetch(`/api/messenger/messages/${data.messageId}`).then(async response => {
+          if (!activeRef.current) return;
+          if (response.status === 404) setMessages(prev => prev.filter(message => message.id !== data.messageId));
+          else if (response.ok) {
+            const updated: Message = await response.json();
+            if (activeRef.current) setMessages(prev => prev.map(message => message.id === updated.id ? updated : message));
+          }
+        }).catch(() => {});
       }
     },
+    onReconnect: () => syncRef.current(),
+    onTypingUpdate: data => { if (data.conversationId === conversation.id) setTypingUsers(data.typing.filter(user => user.id !== session?.user?.id)); },
   });
+  useEffect(() => { socketRef.current = socket; }, [socket]);
 
-  // Отслеживаем статус подключения
-  const prevConnectedRef = useRef(socket.connected);
   useEffect(() => {
-    if (prevConnectedRef.current === socket.connected) return;
-    prevConnectedRef.current = socket.connected;
-
-    if (!socket.connected) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setConnectionStatus("Подключение...");
-      const timer = setTimeout(() => {
-        if (!socket.connected) {
-          setConnectionStatus("Переподключение...");
-        }
-      }, 3000);
-      return () => clearTimeout(timer);
-    } else {
-      setConnectionStatus(null);
-    }
+    if (socket.connected) return;
+    const timer = setTimeout(() => setConnectionStatus('Обновляем сообщения автоматически. Подключение восстанавливается…'), 3000);
+    return () => clearTimeout(timer);
   }, [socket.connected]);
 
-  // Heartbeat for online status
-  useEffect(() => {
-    if (!socket.connected || !session?.user?.id) return;
-    const uid = session.user.id;
-    const interval = setInterval(() => {
-      socketRef.current.sendHeartbeat(uid);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [socket.connected, session?.user?.id]);
-
   const fetchMessages = useCallback(async (cursor?: string | null) => {
-    const isInitial = !cursor;
-    if (!isInitial) setLoadingMore(true);
+    const history = !!cursor;
+    if (history ? pageRequest.current : latestRequest.current) return;
+    const controller = new AbortController();
+    if (history) { pageRequest.current = controller; setLoadingMore(true); }
+    else latestRequest.current = controller;
+    requestControllers.current.add(controller);
     try {
-      const params = new URLSearchParams();
-      params.set('limit', String(PAGE_SIZE));
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
       if (cursor) params.set('cursor', cursor);
-
-      const res = await fetch(`/api/messenger/conversations/${conversation.id}/messages?${params}`);
-      if (!res.ok) {
-        console.error(`Failed to fetch messages: ${res.status} ${res.statusText}`);
-        return;
-      }
+      const res = await fetch(`/api/messenger/conversations/${conversation.id}/messages?${params}`, { signal: controller.signal });
+      if (!res.ok) throw new Error('Не удалось загрузить сообщения. Попробуй ещё раз.');
       const data = await res.json();
-
-      if (isInitial) {
-        setMessages(data.messages || []);
-        setNextCursor(data.nextCursor);
-        setHasMore(!!data.nextCursor);
-        initialLoadRef.current = true;
+      if (!activeRef.current || controller.signal.aborted) return;
+      setLoadError('');
+      const incoming: Message[] = data.messages || [];
+      if (history) {
+        const element = containerRef.current;
+        if (element) scrollAnchor.current = { height: element.scrollHeight, top: element.scrollTop };
+        setMessages(prev => Array.from(new Map([...incoming, ...prev].map(message => [message.id, message])).values()));
       } else {
-        const container = containerRef.current;
-        if (container) {
-          prevScrollOffsetRef.current = container.scrollTop;
-        }
-        setMessages((prev) => [...(data.messages || []), ...prev]);
-        setNextCursor(data.nextCursor);
-        setHasMore(!!data.nextCursor);
+        setMessages(prev => {
+          const oldest = incoming[0];
+          const history = oldest ? prev.filter(message => message.id.startsWith('temp-') || message.createdAt < oldest.createdAt || (message.createdAt === oldest.createdAt && message.id < oldest.id)) : prev.filter(message => message.id.startsWith('temp-'));
+          return Array.from(new Map([...history, ...incoming].map(message => [message.id, message])).values());
+        });
       }
-
-      if (data.pinnedMessages) {
-        setPinnedMessages(data.pinnedMessages);
-      }
-    } catch (err) {
-      console.error("Failed to fetch messages:", err);
+      if (history || initialLoadRef.current) { setNextCursor(data.nextCursor); setHasMore(!!data.nextCursor); }
+      setPinnedMessages(data.pinnedMessages || []);
+    } catch (error) {
+      if (!controller.signal.aborted && activeRef.current) setLoadError(error instanceof Error ? error.message : 'Нет соединения');
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      requestControllers.current.delete(controller);
+      if (pageRequest.current === controller) pageRequest.current = null;
+      if (latestRequest.current === controller) latestRequest.current = null;
+      if (activeRef.current && !controller.signal.aborted) { setLoading(false); setLoadingMore(false); }
     }
   }, [conversation.id]);
 
-  // Infinite scroll — загрузка старых сообщений при прокрутке вверх
-  const handleRowsRendered = useCallback(({
-    startIndex,
-    stopIndex,
-  }: {
-    startIndex: number;
-    stopIndex: number;
-  }) => {
-    const isNearBottom = stopIndex >= listItems.length - 3;
-    setShowScrollBtn(!isNearBottom);
-
-    if (startIndex === 0 && hasMore && !loadingMore && !loading) {
-      fetchMessages(nextCursor);
-    }
-  }, [hasMore, loadingMore, loading, nextCursor, fetchMessages, listItems.length]);
-
-  // Восстанавливаем позицию скролла после загрузки старых сообщений
+  useEffect(() => { syncRef.current = () => { void fetchMessages(); }; }, [fetchMessages]);
   useEffect(() => {
-    if (!loadingMore && prevScrollOffsetRef.current > 0) {
-      // В react-window v2 нет прямого API для scrollToItem через ref
-      // Используем containerRef для прокрутки
-      const container = containerRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight - prevScrollOffsetRef.current;
-        prevScrollOffsetRef.current = 0;
-      }
-    }
-  }, [loadingMore, messages]);
-
-  // Scroll to bottom — скроллим к последнему элементу списка (последнему сообщению)
-  const scrollToBottom = useCallback(() => {
-    const container = containerRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (initialLoadRef.current && !loading) {
-      scrollToBottom();
-      initialLoadRef.current = false;
-    } else if (!loading && !loadingMore) {
-      const container = containerRef.current;
-      if (container) {
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        if (scrollHeight - scrollTop - clientHeight < 400) {
-          scrollToBottom();
-        }
-      }
-    }
-  }, [listItems, loading, loadingMore, scrollToBottom]);
-
-  // Синхронизируем socketRef в эффекте
-  useEffect(() => {
-    socketRef.current = socket;
-  }, [socket]);
-
-
-
-  const handleTyping = useCallback(() => {
-    const s = socketRef.current;
-    if (s.connected) {
-      if (!isTypingRef.current) {
-        isTypingRef.current = true;
-        s.sendTyping(conversation.id, session?.user?.id || '', session?.user?.name || '');
-        setTimeout(() => { isTypingRef.current = false; }, 4000);
-      }
-    } else {
-      fetch(`/api/messenger/conversations/${conversation.id}/typing`, {
-        method: "POST",
-      }).catch(() => {});
-    }
-  }, [conversation.id, session]);
-
-  useEffect(() => {
-    lastPollRef.current = Date.now();
-  }, [conversation.id]);
-
-  useEffect(() => {
+    activeRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMessages([]);
-    setLoading(true);
-    setReplyTo(null);
     fetchMessages();
-
     socketRef.current.joinConversation(conversation.id);
-
-    // Fallback polling (если Socket.IO не работает)
+    // Also reconciles edits/deletions after reconnects and events missed by a tab.
     const interval = setInterval(() => {
-      if (socketRef.current.connected) return;
-      if (isSendingRef.current) return;
-      if (Date.now() - lastPollRef.current < POST_DEBOUNCE_MS) return;
-      fetchMessages();
+      if (!document.hidden && !isSendingRef.current) fetchMessages();
     }, POLL_INTERVAL);
-
     const typingInterval = setInterval(async () => {
       if (socketRef.current.connected) return;
       try {
         const res = await fetch(`/api/messenger/conversations/${conversation.id}/typing`);
-        if (res.ok) {
-          const data = await res.json();
-          setTypingUsers(data.typing);
-        }
-      } catch {
-        // silent
-      }
+        if (res.ok && activeRef.current) setTypingUsers((await res.json()).typing);
+      } catch { /* next poll retries */ }
     }, TYPING_POLL_INTERVAL);
-
+    const controllers = requestControllers.current;
     return () => {
-      clearInterval(interval);
-      clearInterval(typingInterval);
+      activeRef.current = false;
+      clearInterval(interval); clearInterval(typingInterval);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
       socketRef.current.leaveConversation(conversation.id);
+      for (const controller of controllers) controller.abort();
+      pageRequest.current = null; latestRequest.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation.id]);
+  }, [conversation.id, fetchMessages]);
 
-  // Measure container height for List
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setListHeight(entry.contentRect.height);
-      }
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
+  const scrollToBottom = useCallback(() => {
+    const element = containerRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+    nearBottom.current = true;
+    setShowScrollBtn(false);
   }, []);
-
-  const handleReact = useCallback(async (messageId: string, emoji: string) => {
-    try {
-      await fetch(`/api/messenger/messages/${messageId}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emoji }),
-      });
-    } catch (err) {
-      console.error("Failed to toggle reaction:", err);
+  useLayoutEffect(() => {
+    const element = containerRef.current;
+    if (!element || loading) return;
+    if (jumpTarget.current) {
+      document.getElementById(`message-${jumpTarget.current}`)?.scrollIntoView({ block: 'center' });
+      jumpTarget.current = null;
+      nearBottom.current = false;
+    } else if (scrollAnchor.current) {
+      element.scrollTop = scrollAnchor.current.top + element.scrollHeight - scrollAnchor.current.height;
+      scrollAnchor.current = null;
+    } else if (initialLoadRef.current || nearBottom.current) {
+      scrollToBottom();
+      initialLoadRef.current = false;
     }
-  }, []);
+  }, [messages, loading, showMedia, scrollToBottom]);
 
+  useEffect(() => {
+    const content = messageContentRef.current;
+    if (!content) return;
+    const observer = new ResizeObserver(() => {
+      if (nearBottom.current) scrollToBottom();
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [loading, showMedia, scrollToBottom]);
+
+  useEffect(() => {
+    const jump = async (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      if (typeof id !== 'string') return;
+      const existing = document.getElementById(`message-${id}`);
+      if (existing) { nearBottom.current = false; existing.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+      try {
+        const response = await fetch(`/api/messenger/messages/${id}`);
+        if (!response.ok || !activeRef.current) return;
+        const message: Message = await response.json();
+        if (message.conversationId !== conversation.id) return;
+        jumpTarget.current = id;
+        setMessages(prev => Array.from(new Map([...prev, message].map(item => [item.id, item])).values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)));
+      } catch { showAlert('Не удалось открыть сообщение'); }
+    };
+    window.addEventListener('messenger:jump', jump);
+    return () => window.removeEventListener('messenger:jump', jump);
+  }, [conversation.id, showAlert]);
+
+  const handleTyping = useCallback(() => {
+    if (isTypingRef.current) return;
+    isTypingRef.current = true;
+    typingTimer.current = setTimeout(() => { isTypingRef.current = false; }, 4000);
+    if (socketRef.current.connected) socketRef.current.sendTyping(conversation.id, session?.user?.id || '', session?.user?.name || '');
+    else fetch(`/api/messenger/conversations/${conversation.id}/typing`, { method: 'POST' }).catch(() => {});
+  }, [conversation.id, session]);
+
+  const mutate = useCallback(async (url: string, method: string, body?: object) => {
+    const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Не удалось выполнить действие');
+    window.dispatchEvent(new Event('messenger:refresh'));
+    return data;
+  }, []);
+  const handleReact = useCallback(async (messageId: string, emoji: string) => {
+    try { await mutate(`/api/messenger/messages/${messageId}/reactions`, 'POST', { emoji }); await fetchMessages(); }
+    catch (error) { showAlert(error instanceof Error ? error.message : 'Не удалось добавить реакцию'); }
+  }, [mutate, fetchMessages, showAlert]);
   const handleEdit = useCallback(async (messageId: string, content: string) => {
     try {
-      await fetch(`/api/messenger/messages/${messageId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-    } catch (err) {
-      console.error("Failed to edit message:", err);
-    }
-  }, []);
+      const data = await mutate(`/api/messenger/messages/${messageId}`, 'PATCH', { content });
+      if (activeRef.current) setMessages(prev => prev.map(message => message.id === messageId ? { ...message, content: data.content, editedAt: data.editedAt } : message));
+    } catch (error) { showAlert(error instanceof Error ? error.message : 'Не удалось изменить сообщение'); throw error; }
+  }, [mutate, showAlert]);
 
   const handleSend = async (content: string, media?: { url: string; type: string; name: string }) => {
-    if (isSendingRef.current) return;
-
+    if (isSendingRef.current) return false;
     isSendingRef.current = true;
-
-    // Optimistic UI: добавляем сообщение локально сразу
-    localIdCounter += 1;
-    const tempId = `temp-${localIdCounter}`;
+    const key = JSON.stringify([content, media, replyTo?.id]);
+    if (pendingRequest.current?.key !== key) pendingRequest.current = { key, id: `temp-${crypto.randomUUID()}` };
+    const tempId = pendingRequest.current.id;
     const tempMessage: Message = {
-      id: tempId,
-      content,
-      createdAt: new Date().toISOString(),
-      senderId: session?.user?.id || '',
-      sender: {
-        id: session?.user?.id || '',
-        username: session?.user?.name || 'me',
-        avatar: null,
-      },
-      mediaUrl: media?.url || null,
-      mediaType: media?.type || null,
+      id: tempId, content, createdAt: new Date().toISOString(), senderId: session?.user?.id || '',
+      sender: { id: session?.user?.id || '', username: session?.user?.name || '', avatar: null },
+      mediaUrl: media?.url, mediaType: media?.type, mediaName: media?.name,
       replyTo: replyTo ? { id: replyTo.id, content: replyTo.content, senderId: replyTo.senderId, sender: replyTo.sender } : null,
     };
-    setMessages((prev) => [...prev, tempMessage]);
-    setReplyTo(null);
-
+    nearBottom.current = true;
+    setMessages(prev => [...prev, tempMessage]);
     try {
-      const res = await fetch(`/api/messenger/conversations/${conversation.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          replyToId: replyTo?.id || null,
-          mediaUrl: media?.url || null,
-          mediaType: media?.type || null,
-          mediaName: media?.name || null,
-          tempId, // Отправляем tempId для корректной замены optimistic UI
-        }),
+      const data = await mutate(`/api/messenger/conversations/${conversation.id}/messages`, 'POST', {
+        content, replyToId: replyTo?.id || null, mediaUrl: media?.url || null, mediaType: media?.type || null, mediaName: media?.name || null, tempId,
       });
-
-      if (res.ok) {
-        lastPollRef.current = Date.now();
-        const data = await res.json();
-        // Заменяем оптимистичное сообщение реальным из ответа сервера
-        setMessages((prev) => prev.map(m => m.id === tempId ? data : m));
-        // Отправляем через Socket.IO для real-time другим участникам
-        socketRef.current.sendMessage(conversation.id, data);
-      } else {
-        // Ошибка — убираем локальное сообщение
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      if (activeRef.current) {
+        setMessages(prev => [...prev.filter(message => message.id !== tempId && message.id !== data.id), data]);
+        setReplyTo(null);
       }
-    } catch (err) {
-      console.error("Failed to send message:", err);
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
-    } finally {
-      isSendingRef.current = false;
-    }
+      pendingRequest.current = null;
+      socketRef.current.stopTyping(conversation.id);
+      return true;
+    } catch (error) {
+      if (activeRef.current) setMessages(prev => prev.filter(message => message.id !== tempId));
+      showAlert(error instanceof Error ? error.message : 'Не удалось отправить сообщение. Текст сохранён.');
+      return false;
+    } finally { isSendingRef.current = false; }
   };
-
   const handleForward = useCallback((message: Message) => {
-    const text = `[Переслано от ${message.sender.username}]: ${message.content}`;
     setReplyTo(null);
-    // Автоматически вставляем пересланное сообщение в поле ввода
-    setDraftContent(text);
+    setDraftContent(`[Переслано от ${message.sender.username}]: ${message.content}`);
   }, []);
-
   const handlePin = useCallback(async (messageId: string) => {
-    try {
-      await fetch(`/api/messenger/conversations/${conversation.id}/pin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId }),
-      });
-    } catch (err) {
-      console.error("Failed to toggle pin:", err);
-    }
-  }, [conversation.id]);
-
+    try { await mutate(`/api/messenger/conversations/${conversation.id}/pin`, 'POST', { messageId }); await fetchMessages(); }
+    catch (error) { showAlert(error instanceof Error ? error.message : 'Не удалось закрепить сообщение'); }
+  }, [conversation.id, mutate, fetchMessages, showAlert]);
   const handleDelete = useCallback(async (messageId: string, mode: 'forMe' | 'forEveryone' = 'forMe') => {
     try {
-      await fetch(`/api/messenger/messages/${messageId}?mode=${mode}`, {
-        method: "DELETE",
-      });
-      // Оптимистично убираем сообщение из локального списка
-      if (mode === 'forMe') {
-        setMessages((prev) => prev.filter(m => m.id !== messageId));
-      } else {
-        setMessages((prev) => prev.map(m => m.id === messageId ? { ...m, deletedAt: new Date().toISOString() } : m));
+      await mutate(`/api/messenger/messages/${messageId}?mode=${mode}`, 'DELETE');
+      if (activeRef.current) {
+        setMessages(prev => prev.filter(message => message.id !== messageId));
+        setPinnedMessages(prev => prev.filter(message => message.id !== messageId));
       }
-    } catch (err) {
-      console.error("Failed to delete message:", err);
-    }
-  }, []);
-
+    } catch (error) { showAlert(error instanceof Error ? error.message : 'Не удалось удалить сообщение'); }
+  }, [mutate, showAlert]);
   const fetchMedia = async () => {
     setMediaLoading(true);
     try {
-      const res = await fetch(`/api/messenger/conversations/${conversation.id}/media`);
-      if (res.ok) {
-        const data = await res.json();
-        setMediaItems(data.media || []);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setMediaLoading(false);
-    }
+      const response = await fetch(`/api/messenger/conversations/${conversation.id}/media`);
+      if (!response.ok) throw new Error('Не удалось загрузить медиа');
+      const data = await response.json();
+      if (activeRef.current) setMediaItems(data.media || []);
+    } catch { showAlert('Не удалось загрузить медиа'); }
+    finally { if (activeRef.current) setMediaLoading(false); }
   };
 
   const isOnline = useCallback((lastSeenAt?: string | null): boolean => {
@@ -497,66 +393,6 @@ export default function ChatView({ conversation, onBack }: Props) {
   const otherParticipant = conversation.participants.find(p => p.id !== session?.user?.id);
   const otherOnline = otherParticipant ? isOnline(otherParticipant.lastSeenAt) : false;
 
-  // Функция для примерной высоты строки (Bug 5 — динамический расчёт)
-  const estimateRowHeight = useCallback((index: number): number => {
-    const item = listItems[index];
-    if (!item) return 80;
-    if (item.type === 'date-separator' || item.type === 'unread-divider') return 40;
-    const msg = item.message;
-    let height = 60; // base height
-    if (msg.mediaUrl) height += 180; // media
-    if (msg.replyTo) height += 40;
-    if (msg.content.length > 100) height += 20; // long text
-    if (Object.keys(msg.reactions || {}).length > 0) height += 30;
-    return height;
-  }, [listItems]);
-
-  const Row = useCallback(({ index, style }: RowComponentProps) => {
-    const item = listItems[index];
-    if (!item) return null;
-
-    if (item.type === 'date-separator') {
-      return (
-        <div style={style} className="flex items-center gap-4 py-2 px-2">
-          <div className="flex-1 h-px bg-zinc-200 dark:bg-white/10" />
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 px-3 py-1 rounded-full glass">
-            {item.date}
-          </span>
-          <div className="flex-1 h-px bg-zinc-200 dark:bg-white/10" />
-        </div>
-      );
-    }
-
-    if (item.type === 'unread-divider') {
-      return (
-        <div style={style} className="flex items-center gap-4 py-2 px-2">
-          <div className="flex-1 h-px bg-indigo-500/40" />
-          <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 px-3 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10">
-            Новые сообщения
-          </span>
-          <div className="flex-1 h-px bg-indigo-500/40" />
-        </div>
-      );
-    }
-
-    const msg = item.message;
-    return (
-      <div style={style}>
-        <MessageBubble
-          message={msg}
-          isOwn={msg.senderId === session?.user?.id}
-          onDelete={handleDelete}
-          onReply={setReplyTo}
-          onReact={handleReact}
-          onEdit={handleEdit}
-          onPin={handlePin}
-          onForward={handleForward}
-          stagger={item.index + 1}
-        />
-      </div>
-    );
-  }, [listItems, session, handleDelete, handleReact, handleEdit, handlePin, handleForward]);
-
   const formatLastSeen = (lastSeenAt?: string | null): string => {
     if (!lastSeenAt) return "";
     const date = new Date(lastSeenAt);
@@ -571,7 +407,7 @@ export default function ChatView({ conversation, onBack }: Props) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex min-h-0 flex-col h-full">
       {/* Chat header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-white/10 shrink-0">
         <div className="flex items-center gap-3">
@@ -676,7 +512,7 @@ export default function ChatView({ conversation, onBack }: Props) {
       ) : (
         <>
         {/* Connection status banner */}
-        {connectionStatus && (
+        {!socket.connected && connectionStatus && (
           <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20">
             <WifiOff className="size-3 text-amber-500" />
             <span className="text-[11px] text-amber-700 dark:text-amber-400">{connectionStatus}</span>
@@ -684,8 +520,15 @@ export default function ChatView({ conversation, onBack }: Props) {
         )}
         <div
           ref={containerRef}
-          className="flex-1 overflow-y-auto px-5 py-4 scroll-smooth"
+          className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-5 py-4"
+          onScroll={() => {
+            const element = containerRef.current;
+            if (!element) return;
+            nearBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120;
+            setShowScrollBtn(!nearBottom.current);
+          }}
         >
+          {loadError && <div role="alert" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{loadError} <button onClick={() => fetchMessages()} className="underline">Повторить</button></div>}
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="size-6 animate-spin rounded-full border-2 border-zinc-500 border-t-indigo-400" />
@@ -697,11 +540,11 @@ export default function ChatView({ conversation, onBack }: Props) {
               </div>
               <p className="text-sm">Начните общение</p>
               <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">
-                Сообщения защищены сквозным шифрованием
+                Доступ к чату есть только у его участников
               </p>
             </div>
           ) : (
-            <>
+            <div ref={messageContentRef} className="space-y-3">
               {/* Pinned messages banner */}
               {pinnedMessages.length > 0 && (
                 <div id="pinned-banner" className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 animate-slideIn">
@@ -720,19 +563,13 @@ export default function ChatView({ conversation, onBack }: Props) {
                 </div>
               )}
 
-              {listHeight > 0 && (
-                <List
-                  listRef={listRef}
-                  style={{ height: listHeight, width: '100%' }}
-                  rowCount={listItems.length}
-                  rowHeight={estimateRowHeight}
-                  onRowsRendered={handleRowsRendered}
-                  rowComponent={Row}
-                  rowProps={{}}
-                />
-              )}
-            
-            </>
+              {hasMore && <button onClick={() => fetchMessages(nextCursor)} disabled={loadingMore} className="mx-auto my-3 block rounded-full border border-zinc-200 px-4 py-2 text-xs dark:border-zinc-700">{loadingMore ? 'Загрузка…' : 'Более ранние сообщения'}</button>}
+              {listItems.map((item, index) => {
+                if (item.type === 'date-separator') return <div key={`date-${index}`} className="py-3 text-center text-xs text-zinc-500">{item.date}</div>;
+                if (item.type === 'unread-divider') return <div key="unread" className="my-3 text-center text-xs text-indigo-600 dark:text-indigo-300">Новые сообщения</div>;
+                return <MessageBubble key={item.message.id} message={item.message} isOwn={item.message.senderId === session?.user?.id} onDelete={handleDelete} onReply={setReplyTo} onReact={handleReact} onEdit={handleEdit} onPin={handlePin} onForward={handleForward} />;
+              })}
+            </div>
           )}
         </div>
         {/* Scroll to bottom button */}

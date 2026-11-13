@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, useSession } from "@/lib/auth-client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Wind, Mail, KeyRound, CheckCircle, Loader2, ArrowUpRight, Sparkles } from "lucide-react";
@@ -23,10 +23,10 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (session) {
+    if (session && mode === 'login') {
       router.push('/feed');
     }
-  }, [session, router]);
+  }, [session, router, mode]);
 
   // --- Логин ---
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {

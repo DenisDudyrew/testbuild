@@ -1,0 +1,7 @@
+{
+  "secret": "compatibility-fixture-key",
+  "plaintext": "Привет, Zephyr 🌊",
+  "encrypted": "000102030405060708090a0b:d7d425b42b2cbe62866c0ac84dc4bc0b:f4d6882d5b63e764d4a2dbc1f91f241212bce0bb68f62d3a39",
+  "password": "legacy-password",
+  "passwordHash": "$2a$10$Vz.UibQxug0kLAZMv4M1.esnV2TLvkbWAuxqARiIM6JZfI1wE7ssm"
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth-client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { use } from "react";
 import Image from "next/image";
@@ -130,6 +130,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const uploadFile = async (file: File): Promise<string | null> => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('purpose', 'profile');
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',

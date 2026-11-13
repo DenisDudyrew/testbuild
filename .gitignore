@@ -61,3 +61,6 @@ playwright.config.ts
 
 # ai
 TODO.md
+/uploads/
+
+/backend/bin/

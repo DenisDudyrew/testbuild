@@ -1,10 +1,10 @@
 'use client';
-
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import io from 'socket.io-client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface MessageData {
   id: string;
+  conversationId?: string;
+  tempId?: string;
   content: string;
   createdAt: string;
   senderId: string;
@@ -17,120 +17,41 @@ interface MessageData {
   editedAt?: string | null;
   pinnedBy?: { id: string } | null;
 }
-
-type MessageHandler = (message: MessageData) => void;
-type TypingHandler = (data: { conversationId: string; typing: { id: string; username: string }[] }) => void;
-type OnlineHandler = (data: { userId: string; online: boolean }) => void;
-type ConversationUpdateHandler = (data: { conversationId: string; lastMessage: MessageData }) => void;
-
 interface SocketHandlers {
-  onMessageNew?: MessageHandler;
-  onTypingUpdate?: TypingHandler;
-  onOnlineUpdate?: OnlineHandler;
-  onConversationUpdate?: ConversationUpdateHandler;
+  onMessageNew?: (message: MessageData) => void;
+  onMessagesChanged?: (data: { conversationId: string; messageId?: string }) => void;
+  onReconnect?: () => void;
+  onTypingUpdate?: (data: { conversationId: string; typing: { id: string; username: string }[] }) => void;
+  onConversationUpdate?: (data: { conversationId: string }) => void;
 }
-
+// Same UI interface, backed by Go's authenticated SSE stream and HTTP commands.
 export function useSocket(userId: string | undefined, handlers: SocketHandlers) {
-  const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const handlersRef = useRef(handlers);
   const [connected, setConnected] = useState(false);
-
-  useEffect(() => {
-    handlersRef.current = handlers;
-  }, [handlers]);
-
+  useEffect(() => { handlersRef.current = handlers; }, [handlers]);
   useEffect(() => {
     if (!userId) return;
-
-    // Создаём соединение
-    const socket = io({
-      path: '/api/socketio',
-      transports: ['polling', 'websocket'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+    const source = new EventSource('/api/events');
+    source.onopen = () => { setConnected(true); handlersRef.current.onReconnect?.(); };
+    source.onerror = () => setConnected(false);
+    const listen = (name: string, callback: (data: unknown) => void) => source.addEventListener(name, event => {
+      try { callback(JSON.parse((event as MessageEvent).data)); } catch { /* resync on reconnect/poll */ }
     });
-
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('[Socket.IO] Connected');
-      setConnected(true);
-      socket.emit('register', userId);
-    });
-
-    socket.on('message:new', (message: MessageData) => {
-      handlersRef.current.onMessageNew?.(message);
-    });
-
-    socket.on('typing:update', (data: { conversationId: string; typing: { id: string; username: string }[] }) => {
-      handlersRef.current.onTypingUpdate?.(data);
-    });
-
-    socket.on('online:update', (data: { userId: string; online: boolean }) => {
-      handlersRef.current.onOnlineUpdate?.(data);
-    });
-
-    socket.on('conversation:update', (data: { conversationId: string; lastMessage: MessageData }) => {
-      handlersRef.current.onConversationUpdate?.(data);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('[Socket.IO] Disconnected');
-      setConnected(false);
-    });
-
-    // Авто-запуск heartbeat при подключении
-    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-    socket.on('connect', () => {
-      heartbeatInterval = setInterval(() => {
-        socket.emit('online:heartbeat', userId);
-      }, 30000);
-    });
-
-    return () => {
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-      socket.disconnect();
-      socketRef.current = null;
-    };
+    listen('message:new', data => handlersRef.current.onMessageNew?.(data as MessageData));
+    listen('messages:changed', data => handlersRef.current.onMessagesChanged?.(data as { conversationId: string; messageId?: string }));
+    listen('conversation:update', data => handlersRef.current.onConversationUpdate?.(data as { conversationId: string }));
+    listen('typing:update', data => handlersRef.current.onTypingUpdate?.(data as { conversationId: string; typing: { id: string; username: string }[] }));
+    const heartbeat = () => { void fetch('/api/users/me/last-seen', { method: 'POST' }).catch(() => {}); };
+    heartbeat();
+    const interval = setInterval(heartbeat, 30000);
+    return () => { source.close(); clearInterval(interval); };
   }, [userId]);
-
-  const joinConversation = useCallback((conversationId: string) => {
-    socketRef.current?.emit('join:conversation', conversationId);
+  const joinConversation = useCallback((_id: string) => { void _id; }, []);
+  const leaveConversation = useCallback((id: string) => { void fetch(`/api/messenger/conversations/${encodeURIComponent(id)}/typing`, { method: 'DELETE' }).catch(() => {}); }, []);
+  const sendTyping = useCallback((id: string, _userId: string, _username: string) => {
+    void _userId; void _username;
+    void fetch(`/api/messenger/conversations/${encodeURIComponent(id)}/typing`, { method: 'POST' }).catch(() => {});
   }, []);
-
-  const leaveConversation = useCallback((conversationId: string) => {
-    socketRef.current?.emit('leave:conversation', conversationId);
-  }, []);
-
-  const sendMessage = useCallback((conversationId: string, message: MessageData) => {
-    socketRef.current?.emit('message:send', { conversationId, message });
-  }, []);
-
-  const sendTyping = useCallback((conversationId: string, userId: string, username: string) => {
-    socketRef.current?.emit('typing:start', { conversationId, userId, username });
-  }, []);
-
-  const stopTyping = useCallback((conversationId: string) => {
-    socketRef.current?.emit('typing:stop', { conversationId });
-  }, []);
-
-  const sendHeartbeat = useCallback((userId: string) => {
-    socketRef.current?.emit('online:heartbeat', userId);
-  }, []);
-
-  return useMemo(() => ({
-    joinConversation,
-    leaveConversation,
-    sendMessage,
-    sendTyping,
-    stopTyping,
-    sendHeartbeat,
-    connected,
-  }), [joinConversation, leaveConversation, sendMessage, sendTyping, stopTyping, sendHeartbeat, connected]);
-}
-
-export function getSocket() {
-  return null;
+  const stopTyping = leaveConversation;
+  return useMemo(() => ({ connected, joinConversation, leaveConversation, sendTyping, stopTyping }), [connected, joinConversation, leaveConversation, sendTyping, stopTyping]);
 }

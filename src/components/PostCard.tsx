@@ -31,7 +31,7 @@ interface PostCardProps {
   bookmarkedPosts?: Set<string>;
   onPin?: (postId: string) => void;
   pinnedPostId?: string | null;
-  onVote?: (pollId: string, optionId: string) => void;
+  onVote?: (pollId: string, optionId: string, postId: string) => void | Promise<void>;
   setViewedPosts: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 

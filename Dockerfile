@@ -1,65 +1,34 @@
-FROM node:20-slim AS base
-
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-
-RUN npm config set fund false && npm config set audit false
-
-FROM base AS deps-prod
+FROM node:22-slim AS ui-builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm ci --omit=dev
-
-FROM base AS deps
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm ci
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY . .
-
-RUN npx prisma generate
 RUN npm run build
 
-# Компилируем кастомный сервер с Socket.IO в standalone
-RUN npx esbuild server.ts --bundle --platform=node --outfile=.next/standalone/server.custom.js --external:next --external:@prisma/client --external:socket.io --external:*.node --external:encoding --external:bcrypt
+FROM golang:1.27.4-bookworm AS api-builder
+WORKDIR /src
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+COPY backend/ ./
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /zephyr ./cmd/zephyr
 
-FROM base AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 1001 zephyr && useradd --system --uid 1001 --gid zephyr zephyr
+COPY --from=ui-builder --chown=zephyr:zephyr /app/.next/standalone ./
+COPY --from=ui-builder --chown=zephyr:zephyr /app/.next/static ./.next/static
+COPY --from=ui-builder --chown=zephyr:zephyr /app/public ./public
+COPY --from=api-builder /zephyr ./zephyr
+COPY --chown=zephyr:zephyr docker-entrypoint.sh ./
+RUN mkdir -p uploads && chown zephyr:zephyr uploads && chmod +x docker-entrypoint.sh
+USER zephyr
 ENV NODE_ENV=production
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-RUN mkdir -p public/uploads && chown -R nextjs:nodejs public/uploads
-
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=deps-prod --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
-COPY --from=builder --chown=nextjs:nodejs /app/src/lib ./src/lib
-# server.custom.js компилируется из server.ts на этапе builder (esbuild)
-# и уже лежит в .next/standalone/
-
-COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
-USER nextjs
-
+ENV API_ADDR=0.0.0.0:3000
+ENV UI_ORIGIN=http://127.0.0.1:3001
+ENV UI_SERVER_PATH=/app/server.js
+ENV UPLOAD_DIR=/app/uploads
+ENV LEGACY_UPLOAD_DIR=/app/public/uploads
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["./docker-entrypoint.sh"]

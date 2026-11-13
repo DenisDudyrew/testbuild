@@ -76,7 +76,7 @@ export default function NotificationPanel({
 
   const handleClick = (notification: Notification) => {
     if (notification.post) {
-      router.push(`/feed`);
+      router.push(`/feed?postId=${encodeURIComponent(notification.post.id)}`);
     } else {
       router.push(`/profile/${notification.actor.id}`);
     }

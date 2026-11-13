@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth-client";
 import { useState, Suspense, useCallback, useEffect, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import PostForm from "@/components/PostForm";
@@ -35,6 +35,7 @@ function FeedContent() {
   const { data: session } = useSession();
   const [feedTab, setFeedTab] = useState<FeedTab>('for-you');
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
+  const [linkedPost, setLinkedPost] = useState<Post | null>(null);
   const [feedHasMore, setFeedHasMore] = useState(true);
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedPage, setFeedPage] = useState(1);
@@ -42,20 +43,22 @@ function FeedContent() {
   useEffect(() => {
     feedPageRef.current = feedPage;
   }, [feedPage]);
-  const [, setFeedTotal] = useState(0);
+  const failedFeedRequest = useRef({ page: 1, append: false });
   const {
     comments,
+    highlightPostId,
+    highlightCommentId,
     expandedComments,
     showAllComments,
     viewedPosts,
     setShowAllComments,
     setViewedPosts,
     handleToggleComments,
-    handleAddComment,
+    handleAddComment: addComment,
     updatePost,
-    refreshPosts: refreshAll,
-  } = usePosts();
-  const likedPosts = new Set(feedPosts.filter(post => post.likes?.some(like => like.userId === session?.user?.id)).map(post => post.id));
+  } = usePosts({ autoLoad: false });
+  const displayedPosts = linkedPost?.id === highlightPostId && !feedPosts.some(post => post.id === linkedPost.id) ? [linkedPost, ...feedPosts] : feedPosts;
+  const likedPosts = new Set(displayedPosts.filter(post => post.likes?.some(like => like.userId === session?.user?.id)).map(post => post.id));
   const pendingLikes = useRef(new Set<string>());
   const [feedError, setFeedError] = useState('');
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
@@ -67,10 +70,12 @@ function FeedContent() {
   useEffect(() => () => feedRequest.current?.abort(), []);
 
   const loadFeed = useCallback(async (pageNum = 1, append = false) => {
+    if (append && feedRequest.current && !feedRequest.current.signal.aborted) return;
     feedRequest.current?.abort();
     const controller = new AbortController();
     feedRequest.current = controller;
     const endpoint = feedTab === 'for-you' ? '/api/feed/for-you' : '/api/feed/following';
+    failedFeedRequest.current = { page: pageNum, append };
     setFeedLoading(true);
     setFeedError('');
     try {
@@ -79,11 +84,12 @@ function FeedContent() {
         const data = await res.json();
         if (controller.signal.aborted) return;
         if (append) {
-          setFeedPosts(prev => [...prev, ...data.posts]);
+          setFeedPosts(prev => Array.from(new Map([...prev, ...data.posts].map(post => [post.id, post])).values()));
         } else {
           setFeedPosts(data.posts);
         }
-        setFeedTotal(data.total);
+        feedPageRef.current = pageNum;
+        setFeedPage(pageNum);
         setFeedHasMore(pageNum * 10 < data.total);
       } else {
         setFeedError("Не удалось загрузить ленту. Попробуй ещё раз.");
@@ -93,30 +99,51 @@ function FeedContent() {
       console.error('Failed to load feed:', err);
       setFeedError('Нет соединения. Проверь интернет и попробуй ещё раз.');
     } finally {
-      if (!controller.signal.aborted) setFeedLoading(false);
+      if (!controller.signal.aborted) { feedRequest.current = null; setFeedLoading(false); }
     }
   }, [feedTab]);
 
   useEffect(() => {
     if (session) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFeedPosts([]);
+      setFeedHasMore(false);
+      feedPageRef.current = 1;
       setFeedPage(1);
       loadFeed(1);
     }
   }, [session, feedTab, loadFeed]);
 
+  useEffect(() => {
+    if (!highlightPostId || !session?.user?.id) return;
+    const controller = new AbortController();
+    fetch(`/api/posts/${encodeURIComponent(highlightPostId)}`, { signal: controller.signal }).then(async response => {
+      if (response.ok) {
+        const post: Post = await response.json();
+        if (!controller.signal.aborted) setLinkedPost(post);
+      }
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [highlightPostId, session?.user?.id]);
+
+  useEffect(() => {
+    if (!highlightPostId || linkedPost?.id !== highlightPostId) return;
+    const timer = setTimeout(() => document.getElementById(`post-${highlightPostId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    return () => clearTimeout(timer);
+  }, [highlightPostId, linkedPost?.id]);
+
+
   // Infinite scroll через IntersectionObserver
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const handleLoadMore = useCallback(async () => {
-    const nextPage = feedPage + 1;
-    setFeedPage(nextPage);
+    const nextPage = feedPageRef.current + 1;
     await loadFeed(nextPage, true);
-  }, [feedPage, loadFeed]);
+  }, [loadFeed]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel || !feedHasMore || feedLoading) return;
+    if (!sentinel || !feedHasMore || feedLoading || feedError) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -129,20 +156,41 @@ function FeedContent() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [feedHasMore, feedLoading, handleLoadMore]);
+  }, [feedHasMore, feedLoading, feedError, handleLoadMore]);
 
   // Для нового поста — сбрасываем на страницу 1, чтобы новый пост был наверху
   const handlePostCreated = useCallback(() => {
     setFeedPage(1);
     loadFeed(1);
-    refreshAll();
-  }, [loadFeed, refreshAll]);
+  }, [loadFeed]);
 
   // Для репоста — сбрасываем на страницу 1, чтобы новый репост был наверху
   const handleReposted = useCallback(() => {
     setFeedPage(1);
     loadFeed(1);
   }, [loadFeed]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const controller = new AbortController();
+    fetch('/api/bookmarks', { signal: controller.signal }).then(async response => {
+      if (response.ok) {
+        const posts: Post[] = await response.json();
+        if (!controller.signal.aborted) setBookmarkedPosts(new Set(posts.map(post => post.id)));
+      }
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [session?.user?.id]);
+
+  const updateDisplayedPosts = useCallback((update: (posts: Post[]) => Post[]) => {
+    setFeedPosts(update);
+    setLinkedPost(previous => previous ? update([previous])[0] ?? null : null);
+  }, []);
+
+  const handleAddComment = async (postId: string, content: string, parentId?: string) => {
+    const added = await addComment(postId, content, parentId);
+    if (added) updateDisplayedPosts(prev => prev.map(post => post.id === postId ? { ...post, _count: { ...post._count, likes: post._count?.likes ?? 0, comments: (post._count?.comments ?? 0) + 1 } } : post));
+  };
 
   const handleBookmark = async (postId: string) => {
     try {
@@ -172,17 +220,19 @@ function FeedContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pollId, optionId }),
       });
-      if (res.ok && postId) {
+      if (!res.ok) throw new Error('Не удалось проголосовать');
+      if (postId) {
         // Обновляем результаты голосования локально
         const pollRes = await fetch(`/api/polls/vote?pollId=${pollId}`);
         if (pollRes.ok) {
           const updatedPoll = await pollRes.json();
           updatePost(postId, { poll: updatedPoll });
-          setFeedPosts(prev => prev.map(post => post.id === postId ? { ...post, poll: updatedPoll } : post));
+          updateDisplayedPosts(prev => prev.map(post => post.id === postId ? { ...post, poll: updatedPoll } : post));
         }
       }
     } catch (error) {
       console.error('Failed to vote:', error);
+      throw error;
     }
   };
 
@@ -210,14 +260,14 @@ function FeedContent() {
         const data = await response.json();
         
         // Обновляем feedPosts, чтобы счётчик лайков отображался сразу
-        setFeedPosts((prev) =>
+        updateDisplayedPosts((prev) =>
           prev.map((p) => {
             if (p.id !== postId) return p;
             const currentCount = p._count ?? { likes: 0, comments: 0, reposts: 0 };
             return {
               ...p,
               likes: data.liked
-                ? [...p.likes, { userId: session?.user?.id || "" }]
+                ? [...p.likes.filter(like => like.userId !== session?.user?.id), { userId: session?.user?.id || "" }]
                 : p.likes.filter((l) => l.userId !== session?.user?.id),
               _count: {
                 ...currentCount,
@@ -232,12 +282,12 @@ function FeedContent() {
     } finally {
       pendingLikes.current.delete(postId);
     }
-  }, [session]);
+  }, [session, updateDisplayedPosts]);
 
   const handleDeletePost = async (postId: string) => {
     try {
       const response = await fetch(`/api/posts/${postId}`, { method: "DELETE" });
-      if (response.ok) setFeedPosts(prev => prev.filter(post => post.id !== postId));
+      if (response.ok) { updateDisplayedPosts(prev => prev.filter(post => post.id !== postId)); setLinkedPost(prev => prev?.id === postId ? null : prev); }
     } catch (error) {
       console.error("Failed to delete post:", error);
     }
@@ -296,19 +346,21 @@ function FeedContent() {
             <PostForm onPostCreated={handlePostCreated} />
 
             <div className="space-y-4">
-              {feedError ? <div role="alert" className="feed-empty"><h2>Кажется, связь потерялась</h2><p>{feedError}</p><button onClick={() => loadFeed(feedPage)} className="mt-4 rounded-full bg-indigo-600 px-5 py-2 text-white">Повторить</button></div> : feedLoading && feedPosts.length === 0 ? <div role="status" className="feed-empty">Ловим твою волну…</div> : feedPosts.length === 0 ? (
+              {feedError && <div role="alert" className="feed-empty"><h2>Кажется, связь потерялась</h2><p>{feedError}</p><button onClick={() => loadFeed(failedFeedRequest.current.page, failedFeedRequest.current.append)} className="mt-4 rounded-full bg-indigo-600 px-5 py-2 text-white">Повторить</button></div>}
+              {feedLoading && displayedPosts.length === 0 ? <div role="status" className="feed-empty">Ловим твою волну…</div> : displayedPosts.length === 0 ? (
                 <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 backdrop-blur-lg p-8 text-center text-zinc-500 dark:text-zinc-400 animate-pop">
                   {feedTab === 'following' ? 'Вы ни на кого не подписаны. Подпишитесь, чтобы видеть посты!' : 'Пока нет постов. Будь первым!'}
                 </div>
               ) : (
                 <>
-                  {feedPosts.map((post, index) => (
+                  {displayedPosts.map((post, index) => (
                     <div key={post.id} style={{ animationDelay: `${index * 0.05}s` }}>
                       <PostCard
                         post={post}
                         currentUserId={session?.user?.id}
                         likedPosts={likedPosts}
                         comments={comments}
+                        highlightedCommentId={highlightCommentId}
                         expandedComments={expandedComments}
                         showAllComments={showAllComments}
                         viewedPosts={viewedPosts}
@@ -324,7 +376,7 @@ function FeedContent() {
                       onDeletePost={handleDeletePost}
                         onEditPost={(postId, content) => {
                           updatePost(postId, { content });
-                          setFeedPosts(prev => prev.map(post => post.id === postId ? { ...post, content } : post));
+                          updateDisplayedPosts(prev => prev.map(post => post.id === postId ? { ...post, content } : post));
                         }}
                         onRepost={setRepostPost}
                         onBookmark={handleBookmark}

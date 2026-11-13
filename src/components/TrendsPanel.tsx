@@ -19,7 +19,7 @@ export default function TrendsPanel() {
         const res = await fetch("/api/hashtags/trending");
         if (res.ok) {
           const data = await res.json();
-          setTrends(data.hashtags || []);
+          setTrends(Array.isArray(data) ? data : data.hashtags || []);
         }
       } catch (err) {
         console.error("Failed to fetch trends:", err);

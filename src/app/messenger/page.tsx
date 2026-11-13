@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useSession } from "@/lib/auth-client";
 import { Shield, MessageCircle, Lock, Sparkles } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import ConversationList from "@/components/messenger/ConversationList";
@@ -22,11 +22,15 @@ export default function MessengerPage() {
   const [showNewChat, setShowNewChat] = useState(false);
   const [showChatOnMobile, setShowChatOnMobile] = useState(false);
 
+  const selectionRequest = useRef(0);
+
   const handleSelectConversation = useCallback(async (id: string) => {
+    const request = ++selectionRequest.current;
     try {
       const res = await fetch(`/api/messenger/conversations/${id}`);
       if (res.ok) {
         const found: Conversation = await res.json();
+        if (request !== selectionRequest.current) return;
         setActiveConversation(found);
         setShowChatOnMobile(true);
       }
@@ -48,6 +52,7 @@ export default function MessengerPage() {
   }, []);
 
   const handleBackToList = useCallback(() => {
+    selectionRequest.current++;
     setShowChatOnMobile(false);
     setActiveConversation(null);
   }, []);
@@ -70,12 +75,12 @@ export default function MessengerPage() {
     <>
       <Sidebar hideMobileButton={showChatOnMobile} />
       <div className="pl-60 max-sm:pl-0 w-full overflow-hidden min-h-screen bg-gradient-to-br from-zinc-50 via-white to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex h-dvh overflow-hidden">
           {/* Desktop: Conversation List */}
           <div
             className={`
-              w-[380px] max-md:w-full border-r border-zinc-200 dark:border-white/10 flex flex-col shrink-0
-              ${showChatOnMobile ? "hidden md:flex" : "flex"}
+              w-[320px] max-lg:w-full border-r border-zinc-200 dark:border-white/10 flex flex-col shrink-0
+              ${showChatOnMobile ? "hidden lg:flex" : "flex"}
             `}
           >
             <div className="flex-1 overflow-hidden">
@@ -91,11 +96,12 @@ export default function MessengerPage() {
           <div
             className={`
               flex-1 flex flex-col min-w-0
-              ${!showChatOnMobile ? "hidden md:flex" : "flex"}
+              ${!showChatOnMobile ? "hidden lg:flex" : "flex"}
             `}
           >
             {activeConversation ? (
               <ChatView
+                key={activeConversation.id}
                 conversation={activeConversation}
                 onBack={handleBackToList}
               />
@@ -114,8 +120,7 @@ export default function MessengerPage() {
                     Ваши сообщения защищены
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-8">
-                    Все сообщения шифруются сквозным шифрованием. 
-                    Никто, кроме участников чата, не может их прочитать.
+                    Общайся лично или в группе. Доступ к переписке проверяется для каждого участника.
                   </p>
 
                   <div className="flex flex-col items-center gap-3">
@@ -132,7 +137,7 @@ export default function MessengerPage() {
                       <span>AES-256-GCM шифрование</span>
                       <span className="mx-1">•</span>
                       <Lock className="size-3" />
-                      <span>Сквозное шифрование</span>
+                      <span>Доступ по аккаунту</span>
                     </div>
                   </div>
                 </div>

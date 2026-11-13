@@ -17,7 +17,7 @@ services:
       retries: 5
 
   app:
-    image: ghcr.io/denisdudyrew/testbuild:latest
+    image: ghcr.io/denisdudyrew/testbuild:${IMAGE_TAG:-latest}
     restart: always
     ports:
       - "8080:3000"
@@ -27,7 +27,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - uploads:/app/public/uploads
+      - uploads:/app/uploads
 
 volumes:
   postgres_data:

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useSession } from "@/lib/auth-client";
+import { useToast } from "@/components/ToastProvider";
 import { X, Heart, Repeat2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -80,21 +82,25 @@ function CommentItem({
   isHighlighted?: boolean;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const liking = useRef(false);
   const [liked, setLiked] = useState(
-    comment.likes?.some((l) => l.userId === "current") || false
+    comment.likes?.some((l) => l.userId === session?.user?.id) || false
   );
   const [likeCount, setLikeCount] = useState(comment._count?.likes || comment.likes?.length || 0);
   const [repostComment, setRepostComment] = useState<Comment | null>(null);
 
   const handleLike = async () => {
+    if (liking.current) return;
+    liking.current = true;
     try {
       const res = await fetch(`/api/comments/${comment.id}/like`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         setLiked(data.liked);
-        setLikeCount((prev) => (data.liked ? prev + 1 : prev - 1));
+        setLikeCount((prev) => (data.liked ? prev + 1 : Math.max(0, prev - 1)));
       }
-    } catch {}
+    } catch {} finally { liking.current = false; }
   };
 
   const handleRepost = () => {
@@ -185,21 +191,25 @@ function ReplyItem({
   onReply: (id: string, username: string) => void;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const liking = useRef(false);
   const [liked, setLiked] = useState(
-    reply.likes?.some((l: { userId: string }) => l.userId === "current") || false
+    reply.likes?.some((l: { userId: string }) => l.userId === session?.user?.id) || false
   );
   const [likeCount, setLikeCount] = useState(reply._count?.likes || reply.likes?.length || 0);
   const [repostComment, setRepostComment] = useState<CommentReply | null>(null);
 
   const handleLike = async () => {
+    if (liking.current) return;
+    liking.current = true;
     try {
       const res = await fetch(`/api/comments/${reply.id}/like`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         setLiked(data.liked);
-        setLikeCount((prev: number) => (data.liked ? prev + 1 : prev - 1));
+        setLikeCount((prev: number) => (data.liked ? prev + 1 : Math.max(0, prev - 1)));
       }
-    } catch {}
+    } catch {} finally { liking.current = false; }
   };
 
   const handleRepost = () => {
@@ -281,16 +291,21 @@ function CommentForm({
   replyingTo: { commentId: string; username: string } | null;
   onCancelReply: () => void;
 }) {
+  const { showAlert } = useToast();
+  const submitting = useRef(false);
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!comment.trim()) return;
+    if (!comment.trim() || submitting.current) return;
+    submitting.current = true;
     setIsSubmitting(true);
-    onAddComment(postId, comment, replyingTo?.commentId);
-    setComment("");
-    setIsSubmitting(false);
+    try {
+      await onAddComment(postId, comment, replyingTo?.commentId);
+      setComment(''); onCancelReply();
+    } catch (error) { showAlert(error instanceof Error ? error.message : 'Не удалось отправить комментарий'); }
+    finally { submitting.current = false; setIsSubmitting(false); }
   };
 
   return (
@@ -322,7 +337,7 @@ function CommentForm({
           placeholder={
             replyingTo ? `Ответить ${replyingTo.username}...` : "Написать комментарий..."
           }
-          className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 text-xs outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="min-w-0 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 text-xs outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
         <button
           type="submit"

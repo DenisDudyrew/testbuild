@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Plus, MessageCircle, X, Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth-client";
+import { useSocket } from "@/lib/socket-client";
 import Avatar from "@/components/Avatar";
 
 interface Participant {
@@ -49,6 +50,8 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
   const [messageSearching, setMessageSearching] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [loading, setLoading] = useState(true);
+  const searchVersion = useRef(0);
+  const searchController = useRef<AbortController | null>(null);
   const messageSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // removed: isMobile state (unused)
@@ -67,6 +70,14 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
     }
   }, []);
 
+  useSocket(session?.user?.id, { onConversationUpdate: () => { void fetchConversations(); }, onReconnect: () => { void fetchConversations(); } });
+
+  useEffect(() => {
+    const refresh = () => { void fetchConversations(); };
+    window.addEventListener('messenger:refresh', refresh);
+    return () => window.removeEventListener('messenger:refresh', refresh);
+  }, [fetchConversations]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchConversations();
@@ -80,6 +91,16 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
     };
   }, [fetchConversations]);
 
+
+  useEffect(() => {
+    searchVersion.current++;
+    searchController.current?.abort();
+    if (messageSearchTimerRef.current) clearTimeout(messageSearchTimerRef.current);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMessageSearchQuery('');
+    setMessageSearchResults([]); setShowMessageSearch(false); setMessageSearching(false);
+    return () => searchController.current?.abort();
+  }, [activeConversationId]);
 
   const isOnline = useCallback((lastSeenAt?: string | null): boolean => {
     if (!lastSeenAt) return false;
@@ -107,7 +128,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
     return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
   };
 
-  const sortedAndFiltered = conversations
+  const sortedAndFiltered = [...conversations]
     .sort((a, b) => {
       // Сортировка: pinned чаты сверху, затем по lastMessageAt
       if (a.isPinned && !b.isPinned) return -1;
@@ -140,7 +161,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
             placeholder="Поиск чатов..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500"
+            className="min-w-0 flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500"
           />
         </div>
       </div>
@@ -156,8 +177,11 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
               value={messageSearchQuery}
               onChange={(e) => {
                 const val = e.target.value;
+                const version = ++searchVersion.current;
+                searchController.current?.abort();
                 setMessageSearchQuery(val);
                 if (val.length < 2) {
+                  setMessageSearching(false);
                   setMessageSearchResults([]);
                   setShowMessageSearch(false);
                   if (messageSearchTimerRef.current) {
@@ -171,24 +195,26 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
                 setMessageSearching(true);
                 setShowMessageSearch(true);
                 messageSearchTimerRef.current = setTimeout(async () => {
+                  const controller = new AbortController();
+                  searchController.current = controller;
                   try {
-                    const res = await fetch(`/api/messenger/conversations/${activeConversationId}/search?q=${encodeURIComponent(val)}`);
+                    const res = await fetch(`/api/messenger/conversations/${activeConversationId}/search?q=${encodeURIComponent(val)}`, { signal: controller.signal });
                     if (res.ok) {
                       const data = await res.json();
-                      setMessageSearchResults(data.messages || []);
+                      if (version === searchVersion.current) setMessageSearchResults(data.messages || []);
                     }
                   } catch {
                     // ignore
                   } finally {
-                    setMessageSearching(false);
+                    if (version === searchVersion.current) setMessageSearching(false);
                   }
                 }, 300);
               }}
-              className="flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500"
+              className="min-w-0 flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500"
             />
             {messageSearchQuery && (
               <button
-                onClick={() => { setMessageSearchQuery(""); setMessageSearchResults([]); setShowMessageSearch(false); }}
+                onClick={() => { searchVersion.current++; searchController.current?.abort(); if (messageSearchTimerRef.current) clearTimeout(messageSearchTimerRef.current); setMessageSearching(false); setMessageSearchQuery(""); setMessageSearchResults([]); setShowMessageSearch(false); }}
                 className="w-5 h-5 rounded-full bg-zinc-200 dark:bg-white/10 flex items-center justify-center hover:bg-zinc-300 dark:hover:bg-white/20 transition-all"
               >
                 <X className="size-3" />
@@ -207,7 +233,7 @@ export default function ConversationList({ activeConversationId, onSelect, onNew
                   <button
                     key={msg.id}
                     onClick={() => {
-                      onSelect(activeConversationId);
+                      window.dispatchEvent(new CustomEvent("messenger:jump", { detail: msg.id }));
                       setShowMessageSearch(false);
                     }}
                     className="w-full text-left px-4 py-2.5 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all border-b border-zinc-100 dark:border-white/5 last:border-0"

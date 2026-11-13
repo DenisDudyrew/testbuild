@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useToast } from "@/components/ToastProvider";
 import { Check, Clock } from "lucide-react";
 import type { Poll } from "@/types/post";
 
@@ -8,11 +9,13 @@ interface PollComponentProps {
   poll: Poll;
   currentUserId?: string;
   postId: string;
-  onVote: (pollId: string, optionId: string, postId: string) => void;
+  onVote: (pollId: string, optionId: string, postId: string) => void | Promise<void>;
 }
 
-export default function PollComponent({ poll, postId, onVote }: PollComponentProps) {
-  const [votedOptionId, setVotedOptionId] = useState<string | null>(poll.votedOptionId || null);
+export default function PollComponent({ poll, postId, onVote, currentUserId }: PollComponentProps) {
+  const [votedOptionId, setVotedOptionId] = useState<string | null>(poll.votedOptionId || poll.options.find(option => option.votes?.some(vote => vote.userId === currentUserId))?.id || null);
+  const { showAlert } = useToast();
+  const pending = useRef(false);
   const [voting, setVoting] = useState(false);
 
   const totalVotes = poll.options.reduce((sum, o) => sum + (o._count?.votes || 0), 0);
@@ -20,11 +23,11 @@ export default function PollComponent({ poll, postId, onVote }: PollComponentPro
   const isExpired = poll.expiresAt ? new Date(poll.expiresAt) < new Date() : false;
 
   const handleVote = async (optionId: string) => {
-    if (votedOptionId || isExpired || voting) return;
-    setVoting(true);
-    onVote(poll.id, optionId, postId);
-    setVotedOptionId(optionId);
-    setVoting(false);
+    if (votedOptionId || isExpired || pending.current) return;
+    pending.current = true; setVoting(true);
+    try { await onVote(poll.id, optionId, postId); setVotedOptionId(optionId); }
+    catch { showAlert('Не удалось проголосовать. Попробуй ещё раз.'); }
+    finally { pending.current = false; setVoting(false); }
   };
 
   return (
@@ -58,7 +61,7 @@ export default function PollComponent({ poll, postId, onVote }: PollComponentPro
             <button
               key={option.id}
               onClick={() => handleVote(option.id)}
-              disabled={!!votedOptionId || isExpired}
+              disabled={!!votedOptionId || isExpired || voting}
               className={btnClass}
             >
               {/* Progress bar */}

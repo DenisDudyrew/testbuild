@@ -1,3 +1,5 @@
+> Архив документации Node/Prisma до переноса на Go. Актуальная архитектура и запуск описаны в [README](../README.md), состояние релиза — в [STABILITY](STABILITY.md).
+
 # Системная документация проекта **testbuild (ZEPHYR)**
 
 > Версия: 0.0.5 | Платформа: Next.js 16.2.10 + Prisma ORM + Socket.IO

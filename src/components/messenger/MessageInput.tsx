@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { useToast } from "@/components/ToastProvider";
 import { Send, Paperclip, X, FileText } from "lucide-react";
 
 interface Props {
-  onSend: (content: string, media?: { url: string; type: string; name: string }) => void;
+  onSend: (content: string, media?: { url: string; type: string; name: string }) => Promise<boolean>;
   onTyping?: () => void;
   replyTo?: {
     id: string;
@@ -19,6 +20,9 @@ interface Props {
 }
 
 export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply, disabled, otherOnline, draftContent }: Props) {
+  const { showAlert } = useToast();
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [content, setContent] = useState("");
 
   // Обрабатываем draftContent (forwarded message)
@@ -52,16 +56,22 @@ export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply,
     }
   }, [replyTo]);
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  useEffect(() => () => { if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); }, []);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if ((!content.trim() && !attachment) || disabled || uploading) return;
-    onSend(content.trim(), attachment ? { url: attachment.url, type: attachment.type, name: attachment.name } : undefined);
-    setContent("");
-    setAttachment(null);
+    if ((!content.trim() && !attachment) || disabled || uploading || sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
+    try {
+      const sent = await onSend(content.trim(), attachment || undefined);
+      if (sent) { setContent(''); setAttachment(null); }
+    } finally { sendingRef.current = false; setSending(false); }
+
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSubmit();
     }
@@ -71,10 +81,12 @@ export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply,
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 10 * 1024 * 1024) { showAlert("Максимальный размер файла — 10 МБ"); return; }
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("purpose", "message");
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -88,16 +100,20 @@ export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply,
           type: data.mediaType,
           name: file.name,
         });
+      } else {
+        const data = await res.json();
+        showAlert(data.error || "Не удалось загрузить файл");
       }
     } catch (err) {
       console.error("Failed to upload file:", err);
+      showAlert("Нет соединения. Не удалось загрузить файл.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const canSubmit = (content.trim() || attachment) && !disabled && !uploading;
+  const canSubmit = (content.trim() || attachment) && !disabled && !uploading && !sending;
 
   return (
     <div className="border-t border-zinc-200 dark:border-white/10 px-4 py-4">
@@ -161,7 +177,7 @@ export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply,
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || uploading}
+          disabled={disabled || uploading || sending}
           className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 flex items-center justify-center shrink-0 transition-all disabled:opacity-50"
           title="Прикрепить файл"
         >
@@ -179,21 +195,24 @@ export default function MessageInput({ onSend, onTyping, replyTo, onCancelReply,
           onChange={handleFileSelect}
         />
 
-        <div className="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-zinc-100 dark:bg-white/10 backdrop-blur-sm border border-zinc-200 dark:border-white/10 focus-within:border-indigo-500/50 transition-all">
+        <div className="min-w-0 flex-1 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-zinc-100 dark:bg-white/10 backdrop-blur-sm border border-zinc-200 dark:border-white/10 focus-within:border-indigo-500/50 transition-all">
           <input
             ref={inputRef}
             type="text"
+            aria-label="Сообщение"
+            maxLength={5000}
             placeholder="Написать сообщение..."
             value={content}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            disabled={disabled}
-            className="flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 disabled:opacity-50"
+            disabled={disabled || sending}
+            className="min-w-0 w-full flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 disabled:opacity-50"
           />
         </div>
 
         <button
           type="submit"
+          aria-label="Отправить сообщение"
           disabled={!canSubmit}
           className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 transition-all hover:scale-110 hover:animate-ripple disabled:opacity-50 disabled:hover:scale-100 shadow-lg shadow-indigo-500/25"
         >

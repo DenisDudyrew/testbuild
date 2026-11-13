@@ -54,7 +54,7 @@ interface Props {
   onDelete?: (id: string, mode?: 'forMe' | 'forEveryone') => void;
   onReply?: (message: Message) => void;
   onReact?: (messageId: string, emoji: string) => void;
-  onEdit?: (messageId: string, content: string) => void;
+  onEdit?: (messageId: string, content: string) => void | Promise<void>;
   onPin?: (messageId: string) => void;
   onForward?: (message: Message) => void;
   stagger?: number;
@@ -80,9 +80,9 @@ export default function MessageBubble({ message, isOwn, onDelete, onReply, onRea
     return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editContent.trim() && editContent !== message.content) {
-      onEdit?.(message.id, editContent.trim());
+      try { await onEdit?.(message.id, editContent.trim()); } catch { return; }
     }
     setIsEditing(false);
   };
@@ -126,6 +126,7 @@ export default function MessageBubble({ message, isOwn, onDelete, onReply, onRea
 
   return (
     <div
+      id={`message-${message.id}`}
       ref={messageRef}
       className={`flex items-end gap-2.5 group message-enter ${
         isOwn ? "justify-end" : "justify-start"

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth-client";
 import { useSearchParams } from "next/navigation";
 import type { Post, Comment, CommentReply } from "@/types/post";
 
-export function usePosts() {
+export function usePosts({ autoLoad = true }: { autoLoad?: boolean } = {}) {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -61,10 +61,10 @@ export function usePosts() {
       if (response.ok) {
         const data = await response.json();
         const newPosts = data.posts || data;
-        const total = data.total || data.length;
+        const total = data.total ?? data.length ?? 0;
 
         if (append) {
-          setPosts((prev) => [...prev, ...newPosts]);
+          setPosts((prev) => Array.from(new Map([...prev, ...newPosts].map(post => [post.id, post])).values()));
         } else {
           setPosts(newPosts);
           setViewedPosts(new Set());
@@ -97,11 +97,11 @@ export function usePosts() {
   }, [session]);
 
   useEffect(() => {
-    if (session) {
+    if (session && autoLoad) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       loadPosts(1);
     }
-  }, [session, loadPosts]);
+  }, [session, loadPosts, autoLoad]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || !hasMore) return;
@@ -234,9 +234,13 @@ export function usePosts() {
                 : p
             )
           );
+          return true;
         }
+        const error = await response.json();
+        throw new Error(error.error || 'Не удалось отправить комментарий');
       } catch (error) {
         console.error("Failed to add comment:", error);
+        throw error;
       }
     },
     []

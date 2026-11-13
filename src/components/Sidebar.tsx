@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut } from "@/lib/auth-client";
 import { useState, useEffect, useCallback } from "react";
 import { Wind, Home, User, Shield, Search, LogOut, Bell, Newspaper, MessageCircle, Menu, X, Sun, Moon, Bookmark } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
