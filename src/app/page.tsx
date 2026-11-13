@@ -48,7 +48,7 @@ export default function Home() {
       });
 
       if (result?.error) {
-        setError('Неверный логин или пароль');
+        setError(result.error);
         setIsSubmitting(false);
         return;
       }
@@ -170,7 +170,7 @@ export default function Home() {
       });
 
       if (result?.error) {
-        setError('Ошибка входа');
+        setError(result.error);
         setIsSubmitting(false);
         return;
       }

@@ -323,6 +323,37 @@ func TestApplicationAgainstMemoryPostgres(t *testing.T) {
 		bob.do("GET", "/api/users/me", nil, 401)
 		anonymous.do("GET", "/api/auth/session", nil, 200)
 	})
+	t.Run("legacy_accounts_need_not_reconfirm_email", func(t *testing.T) {
+		raw, err := os.ReadFile("../../testdata/crypto.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fixture map[string]string
+		if err = json.Unmarshal(raw, &fixture); err != nil {
+			t.Fatal(err)
+		}
+		id := newID()
+		email, err := encryptText(cfg.EncryptionKey, "legacy@example.com")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = db.Exec(`INSERT INTO "User"(id,username,password,"emailHash","emailEncrypted","emailVerified") VALUES($1,'старый.логин',$2,$3,$4,false)`, id, fixture["passwordHash"], digest("legacy@example.com"), email); err != nil {
+			t.Fatal(err)
+		}
+		legacy := &testClient{t, handler, map[string]*http.Cookie{}}
+		legacy.do("POST", "/api/auth/login", M{"username": "старый.логин", "password": fixture["password"]}, 200)
+		legacy.do("GET", "/api/users/me", nil, 200)
+		alice.do("GET", "/api/users/"+id, nil, 200)
+		var verified bool
+		if err = db.QueryRow(`SELECT "emailVerified" FROM "User" WHERE id=$1`, id).Scan(&verified); err != nil || verified {
+			t.Fatal("legacy login must not falsely mark email as verified")
+		}
+		pendingID := newID()
+		if _, err = db.Exec(`INSERT INTO "User"(id,username,password,"emailHash","emailEncrypted","emailVerified") VALUES($1,'pending_account','__pending__',$2,$3,false)`, pendingID, digest("pending@example.com"), email); err != nil {
+			t.Fatal(err)
+		}
+		legacy.do("POST", "/api/auth/login", M{"username": "pending_account", "password": "__pending__"}, 401)
+	})
 	t.Run("existing_prisma_history_is_preserved", func(t *testing.T) {
 		before, err := one(context.Background(), db, `SELECT jsonb_build_object('id',id,'password',password,'emailEncrypted',"emailEncrypted") FROM "User" WHERE id=$1`, ids["alice"])
 		if err != nil {

@@ -240,26 +240,49 @@ func (s *Server) transaction(ctx context.Context, fn func(Querier) error) error 
 	return errors.New("transaction retry exhausted")
 }
 func success() M { return M{"success": true} }
+func originURL(raw string) (*url.URL, bool) {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || u.User != nil || u.Opaque != "" || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, false
+	}
+	return u, true
+}
+func normalizedHost(host, scheme string) string {
+	host = strings.ToLower(host)
+	if scheme == "https" {
+		host = strings.TrimSuffix(host, ":443")
+	} else if scheme == "http" {
+		host = strings.TrimSuffix(host, ":80")
+	}
+	return host
+}
+func requestOrigin(r *http.Request) (*url.URL, bool) {
+	u, ok := originURL(r.Header.Get("Origin"))
+	if !ok {
+		return nil, false
+	}
+	return u, normalizedHost(u.Host, u.Scheme) == normalizedHost(r.Host, u.Scheme)
+}
 func sameOrigin(r *http.Request, publicURL string) bool {
 	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 		return false
 	}
-	origin := r.Header.Get("Origin")
-	if origin == "" {
+	if r.Header.Get("Origin") == "" {
 		return true
 	}
-	u, err := url.Parse(origin)
-	if err != nil {
+	origin, hostMatches := requestOrigin(r)
+	if origin == nil {
 		return false
 	}
-	if publicURL != "" {
-		allowed, e := url.Parse(publicURL)
-		if e != nil {
-			return false
-		}
-		return u.Host == allowed.Host && u.Scheme == allowed.Scheme
+	// The browser-facing Host is authoritative, even when an old NEXTAUTH_URL is stale.
+	// HTTPS may terminate at nginx; do not require the internal Go connection to use TLS.
+	if hostMatches {
+		return true
 	}
-	return u.Host == r.Host && (u.Scheme == "http" || u.Scheme == "https")
+	if allowed, ok := originURL(publicURL); ok {
+		return normalizedHost(origin.Host, origin.Scheme) == normalizedHost(allowed.Host, allowed.Scheme) && origin.Scheme == allowed.Scheme
+	}
+	return false
 }
 
 type limitEntry struct {

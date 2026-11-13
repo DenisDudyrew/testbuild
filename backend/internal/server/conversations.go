@@ -76,7 +76,7 @@ func (s *Server) conversations(w http.ResponseWriter, r *http.Request, u User) (
 			return err
 		}
 		var count int
-		if err = q.QueryRowContext(r.Context(), `SELECT count(*) FROM "User" WHERE id=ANY($1) AND "emailVerified" AND password<>'__pending__'`, all).Scan(&count); err != nil {
+		if err = q.QueryRowContext(r.Context(), `SELECT count(*) FROM "User" WHERE id=ANY($1) AND password<>'' AND password<>'__pending__'`, all).Scan(&count); err != nil {
 			return err
 		}
 		if count != len(all) {

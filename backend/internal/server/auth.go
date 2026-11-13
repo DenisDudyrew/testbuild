@@ -34,7 +34,21 @@ func randomToken() string {
 	return hex.EncodeToString(b)
 }
 func (s *Server) secure(r *http.Request) bool {
-	return r.TLS != nil || strings.HasPrefix(s.cfg.PublicURL, "https://")
+	if r.TLS != nil {
+		return true
+	}
+	if origin, hostMatches := requestOrigin(r); hostMatches {
+		return origin.Scheme == "https"
+	}
+	if configured, ok := originURL(s.cfg.PublicURL); ok {
+		if origin, valid := originURL(r.Header.Get("Origin")); valid && origin.Scheme == configured.Scheme && normalizedHost(origin.Host, origin.Scheme) == normalizedHost(configured.Host, configured.Scheme) {
+			return configured.Scheme == "https"
+		}
+		if normalizedHost(configured.Host, configured.Scheme) == normalizedHost(r.Host, configured.Scheme) {
+			return configured.Scheme == "https"
+		}
+	}
+	return false
 }
 func (s *Server) cookie(w http.ResponseWriter, r *http.Request, name, value, path string, age int) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: path, MaxAge: age, HttpOnly: true, Secure: s.secure(r), SameSite: http.SameSiteLaxMode})
@@ -46,7 +60,7 @@ func (s *Server) authenticate(r *http.Request) (User, error) {
 		return u, &apiError{401, "Войдите в аккаунт"}
 	}
 	err = s.db.QueryRowContext(r.Context(), `SELECT u.id,u.username,u.password,u.role,u.avatar,u.header,u."emailEncrypted",u."emailVerified" FROM "_zephyr_sessions" se JOIN "User" u ON u.id=se.user_id WHERE se.token_hash=$1 AND se.expires_at>now()`, digest(c.Value)).Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.Avatar, &u.Header, &u.EmailEncrypted, &u.Verified)
-	if errors.Is(err, sql.ErrNoRows) || (!u.Verified && err == nil) {
+	if errors.Is(err, sql.ErrNoRows) || ((u.Password == "__pending__" || u.Password == "") && err == nil) {
 		return User{}, &apiError{401, "Войдите в аккаунт"}
 	}
 	return u, err
@@ -72,7 +86,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, _ User) (any, err
 		return nil, err
 	}
 	name, password := str(b, "username"), str(b, "password")
-	if !usernamePattern.MatchString(name) || len(password) < 1 || len(password) > 128 {
+	if strings.TrimSpace(name) == "" || len(name) > 128 || len(password) < 1 || len(password) > 128 {
 		return nil, bad("Введите логин и пароль")
 	}
 	if !s.limits.allow("login-ip:"+remoteKey(r), 10, time.Minute) || !s.limits.allow("login-user:"+name, 20, 10*time.Minute) {
@@ -90,7 +104,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, _ User) (any, err
 	if len(password) > 72 {
 		password = password[:72]
 	}
-	if !u.Verified || u.Password == "__pending__" || bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) != nil {
+	if u.Password == "__pending__" || bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) != nil {
 		return nil, &apiError{401, "Неверный логин или пароль"}
 	}
 	token := randomToken()

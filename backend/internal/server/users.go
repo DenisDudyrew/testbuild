@@ -13,7 +13,7 @@ func profileExpr(a string) string {
 }
 func (s *Server) profile(w http.ResponseWriter, r *http.Request, u User) (any, error) {
 	id := r.PathValue("id")
-	profile, err := one(r.Context(), s.db, `SELECT `+profileExpr("u")+` FROM "User" u WHERE u.id=$1 AND u."emailVerified" AND u.password<>'__pending__'`, id)
+	profile, err := one(r.Context(), s.db, `SELECT `+profileExpr("u")+` FROM "User" u WHERE u.id=$1 AND u.password<>'' AND u.password<>'__pending__'`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (s *Server) searchUsers(w http.ResponseWriter, r *http.Request, u User) (an
 	items := []M{}
 	if query != "" {
 		var err error
-		items, err = many(r.Context(), s.db, `SELECT `+profileExpr("u")+` FROM "User" u WHERE u."emailVerified" AND u.password<>'__pending__' AND u.username ILIKE $1 AND u.id<>$2 AND ($3='' OR u.id>$3) ORDER BY u.id LIMIT $4`, "%"+escapeLike(query)+"%", u.ID, r.URL.Query().Get("cursor"), integer(r.URL.Query().Get("limit"), 20, 50)+1)
+		items, err = many(r.Context(), s.db, `SELECT `+profileExpr("u")+` FROM "User" u WHERE u.password<>'' AND u.password<>'__pending__' AND u.username ILIKE $1 AND u.id<>$2 AND ($3='' OR u.id>$3) ORDER BY u.id LIMIT $4`, "%"+escapeLike(query)+"%", u.ID, r.URL.Query().Get("cursor"), integer(r.URL.Query().Get("limit"), 20, 50)+1)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +195,7 @@ func (s *Server) trending(w http.ResponseWriter, r *http.Request, u User) (any, 
 	return many(r.Context(), s.db, `SELECT jsonb_build_object('name',h.name,'hashtag',h.name,'count',count(ph."postId"),'postCount',count(ph."postId")) FROM "Hashtag" h JOIN post_hashtags ph ON ph."hashtagId"=h.id GROUP BY h.id ORDER BY count(ph."postId") DESC,h.name LIMIT 10`)
 }
 func (s *Server) explore(w http.ResponseWriter, r *http.Request, u User) (any, error) {
-	users, err := many(r.Context(), s.db, `SELECT `+profileExpr("u")+` FROM "User" u WHERE u."emailVerified" AND u.password<>'__pending__' ORDER BY (SELECT count(*) FROM "Post" p WHERE p."userId"=u.id) DESC,u.id LIMIT 5`)
+	users, err := many(r.Context(), s.db, `SELECT `+profileExpr("u")+` FROM "User" u WHERE u.password<>'' AND u.password<>'__pending__' ORDER BY (SELECT count(*) FROM "Post" p WHERE p."userId"=u.id) DESC,u.id LIMIT 5`)
 	if err != nil {
 		return nil, err
 	}
@@ -326,5 +326,5 @@ func (s *Server) PromoteAdmin(ctx context.Context, username string) error {
 	if !usernamePattern.MatchString(username) {
 		return bad("Некорректный логин")
 	}
-	return affected(s.db.ExecContext(ctx, `UPDATE "User" SET role='admin' WHERE username=$1 AND "emailVerified" AND password<>'__pending__'`, username))
+	return affected(s.db.ExecContext(ctx, `UPDATE "User" SET role='admin' WHERE username=$1 AND password<>'' AND password<>'__pending__'`, username))
 }

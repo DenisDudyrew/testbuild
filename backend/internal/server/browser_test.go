@@ -58,7 +58,7 @@ func TestBrowserAgainstGo(t *testing.T) {
 	if !ready {
 		t.Fatal("UI did not start")
 	}
-	cfg := Config{AuthSecret: "browser-test-secret", EncryptionKey: "browser-test-key", UploadDir: t.TempDir(), LegacyUploadDir: t.TempDir(), UIOrigin: uiURL}
+	cfg := Config{AuthSecret: "browser-test-secret", EncryptionKey: "browser-test-key", UploadDir: t.TempDir(), LegacyUploadDir: t.TempDir(), UIOrigin: uiURL, PublicURL: "https://your-domain.com"}
 	app := New(db, cfg)
 	defer app.Close()
 	codes := map[string]string{}
